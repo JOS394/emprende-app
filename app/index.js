@@ -1,4 +1,3 @@
-// app/(tabs)/index.js
 import { StyleSheet, Text, View } from 'react-native';
 
 export default function TabIndex() {
