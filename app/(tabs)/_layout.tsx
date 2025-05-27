@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 // Importamos nuestras pantallas
+import CompanyScreen from './company';
 import HomeScreen from './index';
 import ProfileScreen from './profile';
 import SearchScreen from './search';
@@ -23,6 +24,8 @@ export default function TabLayout() {
             iconName = focused ? 'search' : 'search-outline';
           } else if (route.name === 'profile') {
             iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'company') {
+            iconName = focused ? 'business' : 'business-outline';
           } else {
             iconName = 'help-outline';
           }
@@ -65,6 +68,15 @@ export default function TabLayout() {
           title: 'Buscar',
           headerShown: true,
           headerTitle: 'Buscar'
+        }}
+      />
+       <Tab.Screen 
+        name="company" 
+        component={CompanyScreen}
+        options={{
+          title: 'Empresa',
+          headerShown: true,
+          headerTitle: 'Mi Empresa'
         }}
       />
       <Tab.Screen 
