@@ -1,23 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-
-// Importamos nuestras pantallas
-import CompanyScreen from './company';
-import HomeScreen from './index';
-import ProfileScreen from './profile';
-import SearchScreen from './search';
-
-const Tab = createBottomTabNavigator();
+import { Tabs } from 'expo-router';
+import { useLoading } from '../../src/contexts/LoadingContext';
 
 export default function TabLayout() {
+  const { showLoading, hideLoading } = useLoading();
+
   return (
-    <Tab.Navigator
+    <Tabs
       screenOptions={({ route }) => ({
-        // Esta función define los iconos para cada tab
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
-          // Decidimos qué icono mostrar según la pantalla
           if (route.name === 'index') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'search') {
@@ -26,15 +19,16 @@ export default function TabLayout() {
             iconName = focused ? 'person' : 'person-outline';
           } else if (route.name === 'company') {
             iconName = focused ? 'business' : 'business-outline';
+          } else if (route.name === 'vendors') {
+            iconName = focused ? 'business' : 'business-outline';
           } else {
             iconName = 'help-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        // Colores del tab bar
-        tabBarActiveTintColor: '#007AFF', // Color cuando está seleccionado
-        tabBarInactiveTintColor: 'gray',  // Color cuando no está seleccionado
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: 'gray',
         tabBarStyle: {
           backgroundColor: 'white',
           borderTopWidth: 1,
@@ -42,52 +36,53 @@ export default function TabLayout() {
           height: 60,
           paddingBottom: 5,
         },
-        // Estilo de las etiquetas
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
         },
-        // Ocultar el header principal ya que cada tab puede tener el suyo
-        headerShown: false,
       })}
+      screenListeners={{
+        tabPress: () => {
+          showLoading();
+          setTimeout(() => hideLoading(), 150);
+        },
+      }}
     >
-      {/* Definimos cada tab con su pantalla correspondiente */}
-      <Tab.Screen 
+      <Tabs.Screen 
         name="index" 
-        component={HomeScreen}
-        options={{
+        options={{ 
           title: 'Inicio',
-          headerShown: true,
           headerTitle: 'Business App - Inicio'
-        }}
+        }} 
       />
-      <Tab.Screen 
+      <Tabs.Screen 
         name="search" 
-        component={SearchScreen}
-        options={{
+        options={{ 
           title: 'Buscar',
-          headerShown: true,
           headerTitle: 'Buscar'
-        }}
+        }} 
       />
-       <Tab.Screen 
+      <Tabs.Screen 
         name="company" 
-        component={CompanyScreen}
-        options={{
+        options={{ 
           title: 'Empresa',
-          headerShown: true,
           headerTitle: 'Mi Empresa'
-        }}
+        }} 
       />
-      <Tab.Screen 
+      <Tabs.Screen 
+        name="vendors" 
+        options={{ 
+          title: 'Proveedores',
+          headerShown: false
+        }} 
+      />
+      <Tabs.Screen 
         name="profile" 
-        component={ProfileScreen}
-        options={{
+        options={{ 
           title: 'Perfil',
-          headerShown: true,
           headerTitle: 'Mi Perfil'
-        }}
+        }} 
       />
-    </Tab.Navigator>
+    </Tabs>
   );
 }

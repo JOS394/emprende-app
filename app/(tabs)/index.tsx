@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from 'expo-router';
 import {
   ScrollView,
   StyleSheet,
@@ -6,8 +7,21 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useLoading } from '../../src/contexts/LoadingContext';
+
 
 export default function HomeScreen() {
+  const { showLoading, hideLoading } = useLoading();
+
+  const handleNavigation = (screenName: string) => {
+    showLoading();
+    
+    setTimeout(() => {
+      router.push(`/${screenName}` as any);
+      hideLoading();
+    }, 500);
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
@@ -17,9 +31,9 @@ export default function HomeScreen() {
         </View>
         <View style={styles.containerSections}>
           <View style={styles.leftBox}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => handleNavigation('products')}>
               <View style={styles.card}>
-                <Text style={styles.cardTitle}>🎉 Productos</Text>
+                <Text style={styles.cardTitle}>Productos</Text>
                 <Ionicons
                   style={styles.icon}
                   name="pricetag"
@@ -31,9 +45,9 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.rightBox}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => handleNavigation('vendors')}>
               <View style={styles.card}>
-                <Text style={styles.cardTitle}>🎉 Proveedores</Text>
+                <Text style={styles.cardTitle}>Proveedores</Text>
                 <Ionicons
                   style={styles.icon}
                   name="business"
