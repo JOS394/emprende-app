@@ -8,42 +8,58 @@ export const initDatabase = () => {
   try {
     // Tabla de productos
     db.execSync(`
-      CREATE TABLE IF NOT EXISTS productos (
+      CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
-        precio REAL NOT NULL,
+        name TEXT NOT NULL,
+        price REAL NOT NULL,
         stock INTEGER DEFAULT 0,
-        proveedor_id INTEGER,
-        fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (proveedor_id) REFERENCES proveedores (id)
+        vendor_id INTEGER,
+        date_created DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (vendor_id) REFERENCES vendors (id)
       );
     `);
     console.log('Tabla productos creada');
 
     // Tabla de proveedores
     db.execSync(`
-      CREATE TABLE IF NOT EXISTS proveedores (
+      CREATE TABLE IF NOT EXISTS vendors (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
-        telefono TEXT,
+        name TEXT NOT NULL,
+        phone TEXT,
         email TEXT,
-        direccion TEXT,
-        fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
+        address TEXT,
+        date_created DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
     console.log('Tabla proveedores creada');
 
     // Tabla de empresa
     db.execSync(`
-      CREATE TABLE IF NOT EXISTS empresa (
+      CREATE TABLE IF NOT EXISTS company (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
-        telefono TEXT,
+        name TEXT NOT NULL,
+        phone TEXT,
         email TEXT,
-        direccion TEXT
+        address TEXT
       );
     `);
     console.log('Tabla empresa creada');
+
+    // Tabla de pedidos
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date_order DATE NOT NULL,
+        date_start DATE NOT NULL,
+        date_end DATE NOT NULL,
+        vendor_id INTEGER,
+        status TEXT DEFAULT 'pending',
+        content TEXT NOT NULL,
+        total REAL,
+        date_created DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Tabla pedidos creada');
 
     return true;
   } catch (error) {

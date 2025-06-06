@@ -30,7 +30,7 @@ export default function ProveedoresScreen() {
       description: 'Ver pedidos anteriores',
       icon: 'time',
       color: '#FF9800',
-      route: './vendors/orders'
+      route: './vendors/history'
     }
   ];
 

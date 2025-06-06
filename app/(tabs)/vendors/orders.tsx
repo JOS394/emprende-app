@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,21 +12,49 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { OrdersService } from '../../../src/services/OrdersService';
 
 export default function OrdersScreen() {
-  const [fechaPedido, setFechaPedido] = useState(new Date().toISOString().split('T')[0]);
-  const [fechaEntregaInicio, setFechaEntregaInicio] = useState('');
-  const [fechaEntregaFin, setFechaEntregaFin] = useState('');
-  const [contenido, setContenido] = useState('');
+  const [dateOrder, setDateOrder] = useState(new Date());
+  const [dateStart, setDateStart] = useState(new Date());
+  const [dateEnd, setDateEnd] = useState(new Date());
+  const [content, setContent] = useState('');
+  const [vendor, setVendor] = useState('');
+  const [total, setTotal] = useState('');
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
+  
+  // Estados para controlar los pickers
+  const [showDatePicker, setShowDatePicker] = useState<string | null>(null);
 
   // Funciones del editor
   const toggleBold = () => setIsBold(!isBold);
   const toggleItalic = () => setIsItalic(!isItalic);
   
   const insertText = (text: string) => {
-    setContenido(prev => prev + text);
+    setContent(prev => prev + text);
+  };
+
+  // Función para manejar cambios de fecha
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || new Date();
+    setShowDatePicker(null);
+    
+    if (showDatePicker === 'pedido') {
+      setDateOrder(currentDate);
+    } else if (showDatePicker === 'inicio') {
+      setDateStart(currentDate);
+    } else if (showDatePicker === 'fin') {
+      setDateEnd(currentDate);
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
   };
 
   const clearContent = () => {
@@ -32,18 +63,60 @@ export default function OrdersScreen() {
       '¿Estás seguro de borrar todo el contenido?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Limpiar', onPress: () => setContenido('') }
+        { text: 'Limpiar', onPress: () => setContent('') }
       ]
     );
   };
 
-  const savePedido = () => {
-    if (!contenido.trim()) {
+  const savePedido = async () => {
+    if (!content.trim()) {
       Alert.alert('Error', 'Debes agregar contenido al pedido');
       return;
     }
-    
-    Alert.alert('Éxito', 'Pedido guardado correctamente');
+
+    if (!vendor.trim()) {
+      Alert.alert('Error', 'Debes especificar un proveedor');
+      return;
+    }
+
+    try {
+      const newOrder = {
+        date_order: dateOrder,
+        date_start: dateStart,
+        date_end: dateEnd,
+        vendor: vendor.trim(),
+        status: 'pending' as const,
+        content: content.trim(),
+        total: total ? parseFloat(total) : undefined
+      };
+
+      await OrdersService.create(newOrder);
+      
+      Alert.alert(
+        'Éxito', 
+        'Pedido guardado correctamente',
+        [
+          {
+            text: 'Ver Historial',
+            onPress: () => router.push('/vendors/history')
+          },
+          {
+            text: 'Nuevo Pedido',
+            onPress: () => {
+              setContent('');
+              setVendor('');
+              setTotal('');
+              setDateOrder(new Date());
+              setDateStart(new Date());
+              setDateEnd(new Date());
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar el pedido');
+      console.error('Error guardando pedido:', error);
+    }
   };
 
   return (
@@ -55,34 +128,62 @@ export default function OrdersScreen() {
           
           <View style={styles.dateRow}>
             <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Fecha de Pedido:</Text>
+              <Text style={styles.dateLabel}>Proveedor *:</Text>
               <TextInput
-                style={styles.dateInput}
-                value={fechaPedido}
-                onChangeText={setFechaPedido}
-                placeholder="YYYY-MM-DD"
+                style={styles.input}
+                value={vendor}
+                onChangeText={setVendor}
+                placeholder="Nombre del proveedor"
               />
             </View>
           </View>
 
           <View style={styles.dateRow}>
             <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Entrega desde:</Text>
+              <Text style={styles.dateLabel}>Total (opcional):</Text>
               <TextInput
-                style={styles.dateInput}
-                value={fechaEntregaInicio}
-                onChangeText={setFechaEntregaInicio}
-                placeholder="YYYY-MM-DD"
+                style={styles.input}
+                value={total}
+                onChangeText={setTotal}
+                placeholder="0.00"
+                keyboardType="numeric"
               />
+            </View>
+          </View>
+          
+          <View style={styles.dateRow}>
+            <View style={styles.dateField}>
+              <Text style={styles.dateLabel}>Fecha de Pedido:</Text>
+              <TouchableOpacity 
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker('pedido')}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#666" />
+                <Text style={styles.dateText}>{formatDate(dateOrder)}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.dateRow}>
+            <View style={styles.dateField}>
+              <Text style={styles.dateLabel}>Entrega desde:</Text>
+              <TouchableOpacity 
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker('inicio')}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#666" />
+                <Text style={styles.dateText}>{formatDate(dateStart)}</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.dateField}>
               <Text style={styles.dateLabel}>Entrega hasta:</Text>
-              <TextInput
-                style={styles.dateInput}
-                value={fechaEntregaFin}
-                onChangeText={setFechaEntregaFin}
-                placeholder="YYYY-MM-DD"
-              />
+              <TouchableOpacity 
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker('fin')}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#666" />
+                <Text style={styles.dateText}>{formatDate(dateEnd)}</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -145,8 +246,8 @@ Puedes incluir:
 • Cantidades necesarias  
 • Especificaciones especiales
 • Notas para el proveedor"
-            value={contenido}
-            onChangeText={setContenido}
+            value={content}
+            onChangeText={setContent}
             textAlignVertical="top"
           />
 
@@ -191,6 +292,19 @@ Puedes incluir:
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Date Picker */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={
+            showDatePicker === 'pedido' ? dateOrder :
+            showDatePicker === 'inicio' ? dateStart : dateEnd
+          }
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onDateChange}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -228,11 +342,25 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 5,
   },
-  dateInput: {
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 10,
+    padding: 12,
+    backgroundColor: 'white',
+    gap: 8,
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
   },
   editorSection: {

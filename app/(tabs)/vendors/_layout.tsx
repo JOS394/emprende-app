@@ -30,7 +30,7 @@ export default function VendorsLayout() {
           headerTitleStyle: { fontWeight: 'bold' }
         }} 
       />
-      {/* <Stack.Screen 
+      <Stack.Screen 
         name="history" 
         options={{ 
           title: 'Historial de Pedidos',
@@ -38,7 +38,7 @@ export default function VendorsLayout() {
           headerTintColor: 'white',
           headerTitleStyle: { fontWeight: 'bold' }
         }} 
-      /> */}
+      />
     </Stack>
   );
 }
