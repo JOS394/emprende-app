@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { LoadingProvider } from '../src/contexts/LoadingContext';
 import { initDatabase } from '../src/database/database';
 

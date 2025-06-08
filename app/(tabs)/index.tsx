@@ -59,21 +59,22 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.infoSection}>
-          <Text style={styles.sectionTitle}>¿Qué puedes hacer ahora?</Text>
-          <Text style={styles.infoText}>
-            • Navegar entre tabs tocando los iconos de abajo
-          </Text>
-          <Text style={styles.infoText}>
-            • Personalizar los iconos y colores
-          </Text>
-          <Text style={styles.infoText}>
-            • Agregar más funcionalidades a cada pantalla
-          </Text>
-          <Text style={styles.infoText}>
-            • Integrar con Supabase para datos reales
-          </Text>
+        <View style={styles.containerSections}>
+        <View style={styles.leftBox}>
+            <TouchableOpacity onPress={() => handleNavigation('orders')}>
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Pedidos</Text>
+                <Ionicons
+                  style={styles.icon}
+                  name="document-text"
+                  size={90}
+                  color="#007AFF"
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
+
       </View>
     </ScrollView>
   );

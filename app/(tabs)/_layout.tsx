@@ -83,6 +83,13 @@ export default function TabLayout() {
           headerTitle: 'Mi Perfil'
         }} 
       />
+      <Tabs.Screen 
+        name="orders" 
+        options={{ 
+          title: 'Pedidos',
+          headerShown: false
+        }} 
+      />
     </Tabs>
   );
 }

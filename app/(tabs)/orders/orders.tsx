@@ -98,7 +98,7 @@ export default function OrdersScreen() {
         [
           {
             text: 'Ver Historial',
-            onPress: () => router.push('/vendors/history')
+            onPress: () => router.push('/orders/history')
           },
           {
             text: 'Nuevo Pedido',

@@ -21,24 +21,6 @@ export default function VendorsLayout() {
           headerTitleStyle: { fontWeight: 'bold' }
         }} 
       />
-      <Stack.Screen 
-        name="orders" 
-        options={{ 
-          title: 'Realizar Pedidos',
-          headerStyle: { backgroundColor: '#2196F3' },
-          headerTintColor: 'white',
-          headerTitleStyle: { fontWeight: 'bold' }
-        }} 
-      />
-      <Stack.Screen 
-        name="history" 
-        options={{ 
-          title: 'Historial de Pedidos',
-          headerStyle: { backgroundColor: '#FF9800' },
-          headerTintColor: 'white',
-          headerTitleStyle: { fontWeight: 'bold' }
-        }} 
-      />
     </Stack>
   );
 }
