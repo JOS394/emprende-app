@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
 import { Order } from '../../../src/models/Order';
 import { OrdersService } from '../../../src/services/OrdersService';
 
@@ -19,6 +21,7 @@ export default function HistoryScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [pedidos, setPedidos] = useState<Order[]>([]);
+  const [showFullImage, setShowFullImage] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,16 +63,37 @@ export default function HistoryScreen() {
     return date.toLocaleDateString('es-ES');
   };
 
+  const isImageContent = (content: string) => {
+    return content.startsWith('Pedido con imagen:');
+  };
+
+  const extractImageUri = (content: string) => {
+    if (content.startsWith('Pedido con imagen:')) {
+      return content.replace('Pedido con imagen: ', '').trim();
+    }
+    return null;
+  };
+
+  const openImageViewer = (imageUri: string) => {
+    setShowFullImage(true);
+  };
+
   const filteredPedidos = pedidos.filter(pedido => 
     filterStatus === 'todos' || pedido.status === filterStatus
   );
 
-  const viewPedido = (pedido: Order) => {
+  // Funciones para el ActionSheet
+  const handleViewPedido = (pedido: Order) => {
     setSelectedOrder(pedido);
+    setShowFullImage(false); // Reset imagen completa
     setModalVisible(true);
   };
 
-  const deletePedido = async (id: number) => {
+  const handleEditPedido = (pedido: Order) => {
+    Alert.alert('Editar', `Editar pedido #${pedido.id}`);
+  };
+
+  const handleDeletePedido = async (pedido: Order) => {
     Alert.alert(
       'Eliminar Pedido',
       '¿Estás seguro de eliminar este pedido del historial?',
@@ -80,7 +104,7 @@ export default function HistoryScreen() {
           style: 'destructive', 
           onPress: async () => {
             try {
-              await OrdersService.delete(id);
+              await OrdersService.delete(pedido.id);
               await cargarPedidos();
               Alert.alert('Éxito', 'Pedido eliminado del historial');
             } catch (error) {
@@ -95,16 +119,24 @@ export default function HistoryScreen() {
   const renderPedidoItem = ({ item }: { item: Order }) => (
     <View style={styles.pedidoCard}>
       <View style={styles.pedidoHeader}>
-        <View>
+        <View style={styles.pedidoInfo}>
           <Text style={styles.pedidoId}>Pedido #{item.id}</Text>
           <Text style={styles.pedidoProveedor}>{item.vendor}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getEstadoColor(item.status) }]}>
-          <Text style={styles.statusText}>{getEstadoText(item.status)}</Text>
+        <View style={styles.headerRight}>
+          <View style={[styles.statusBadge, { backgroundColor: getEstadoColor(item.status) }]}>
+            <Text style={styles.statusText}>{getEstadoText(item.status)}</Text>
+          </View>
+          <ActionSheetMenu
+            onView={() => handleViewPedido(item)}
+            onEdit={() => handleEditPedido(item)}
+            onDelete={() => handleDeletePedido(item)}
+            itemName={`Pedido #${item.id}`}
+          />
         </View>
       </View>
 
-      <View style={styles.pedidoInfo}>
+      <View style={styles.pedidoDetails}>
         <View style={styles.infoRow}>
           <Ionicons name="calendar-outline" size={16} color="#666" />
           <Text style={styles.infoText}>Pedido: {formatDate(item.date_order)}</Text>
@@ -121,24 +153,12 @@ export default function HistoryScreen() {
             <Text style={styles.infoText}>Total: ${item.total.toLocaleString()}</Text>
           </View>
         )}
-      </View>
-
-      <View style={styles.pedidoActions}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.viewButton]}
-          onPress={() => viewPedido(item)}
-        >
-          <Ionicons name="eye-outline" size={16} color="white" />
-          <Text style={styles.actionButtonText}>Ver</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => deletePedido(item.id)}
-        >
-          <Ionicons name="trash-outline" size={16} color="white" />
-          <Text style={styles.actionButtonText}>Eliminar</Text>
-        </TouchableOpacity>
+        {isImageContent(item.content) && (
+          <View style={styles.infoRow}>
+            <Ionicons name="image-outline" size={16} color="#007AFF" />
+            <Text style={[styles.infoText, styles.imageIndicator]}>Incluye imagen</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -206,28 +226,67 @@ export default function HistoryScreen() {
                   </View>
 
                   <View style={styles.modalContent}>
-                    <View style={styles.detailSection}>
-                      <Text style={styles.sectionTitle}>Información General</Text>
-                      <Text style={styles.detailText}>Proveedor: {selectedOrder.vendor}</Text>
-                      <Text style={styles.detailText}>Fecha de pedido: {formatDate(selectedOrder.date_order)}</Text>
-                      <Text style={styles.detailText}>
-                        Entrega estimada: {formatDate(selectedOrder.date_start)} - {formatDate(selectedOrder.date_end)}
-                      </Text>
-                      <View style={styles.statusContainer}>
-                        <Text style={styles.detailText}>Estado: </Text>
-                        <View style={[styles.statusBadge, { backgroundColor: getEstadoColor(selectedOrder.status) }]}>
-                          <Text style={styles.statusText}>{getEstadoText(selectedOrder.status)}</Text>
-                        </View>
+                    {showFullImage ? (
+                      <View style={styles.fullImageView}>
+                        <TouchableOpacity 
+                          style={styles.backButton}
+                          onPress={() => setShowFullImage(false)}
+                        >
+                          <Ionicons name="arrow-back" size={24} color="#333" />
+                          <Text style={styles.backText}>Volver</Text>
+                        </TouchableOpacity>
+                        <Image 
+                          source={{ uri: extractImageUri(selectedOrder.content)! }} 
+                          style={styles.fullModalImage}
+                          resizeMode="contain"
+                          onError={(error) => console.log('Error imagen completa:', error)}
+                          onLoad={() => console.log('Imagen cargada exitosamente')}
+                        />
                       </View>
-                      {selectedOrder.total && (
-                        <Text style={styles.totalText}>Total: ${selectedOrder.total.toLocaleString()}</Text>
-                      )}
-                    </View>
+                    ) : (
+                      <>
+                        <View style={styles.detailSection}>
+                          <Text style={styles.sectionTitle}>Información General</Text>
+                          <Text style={styles.detailText}>Proveedor: {selectedOrder.vendor}</Text>
+                          <Text style={styles.detailText}>Fecha de pedido: {formatDate(selectedOrder.date_order)}</Text>
+                          <Text style={styles.detailText}>
+                            Entrega estimada: {formatDate(selectedOrder.date_start)} - {formatDate(selectedOrder.date_end)}
+                          </Text>
+                          <View style={styles.statusContainer}>
+                            <Text style={styles.detailText}>Estado: </Text>
+                            <View style={[styles.statusBadge, { backgroundColor: getEstadoColor(selectedOrder.status) }]}>
+                              <Text style={styles.statusText}>{getEstadoText(selectedOrder.status)}</Text>
+                            </View>
+                          </View>
+                          {selectedOrder.total && (
+                            <Text style={styles.totalText}>Total: ${selectedOrder.total.toLocaleString()}</Text>
+                          )}
+                        </View>
 
-                    <View style={styles.detailSection}>
-                      <Text style={styles.sectionTitle}>Contenido del Pedido</Text>
-                      <Text style={styles.contentText}>{selectedOrder.content}</Text>
-                    </View>
+                        <View style={styles.detailSection}>
+                          <Text style={styles.sectionTitle}>Contenido del Pedido</Text>
+                          {isImageContent(selectedOrder.content) ? (
+                            <View style={styles.imageContainer}>
+                              <Text style={styles.imageLabel}>Imagen del pedido:</Text>
+                              {extractImageUri(selectedOrder.content) && (
+                                <TouchableOpacity 
+                                  onPress={() => openImageViewer(extractImageUri(selectedOrder.content)!)}
+                                >
+                                  <Image 
+                                    source={{ uri: extractImageUri(selectedOrder.content)! }} 
+                                    style={styles.contentImage}
+                                    resizeMode="contain"
+                                    onError={() => console.log('Error cargando imagen')}
+                                  />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          ) : (
+                            <Text style={styles.contentText}>{selectedOrder.content}</Text>
+                          )}
+                        </View>
+                      </>
+                    )}
                   </View>
                 </>
               )}
@@ -287,8 +346,11 @@ const styles = StyleSheet.create({
   pedidoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    alignItems: 'flex-start',
+    marginBottom: 15,
+  },
+  pedidoInfo: {
+    flex: 1,
   },
   pedidoId: {
     fontSize: 18,
@@ -300,6 +362,11 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -310,41 +377,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  pedidoInfo: {
-    marginBottom: 15,
+  pedidoDetails: {
+    gap: 5,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
   },
   infoText: {
     fontSize: 14,
     color: '#666',
     marginLeft: 8,
   },
-  pedidoActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 5,
-  },
-  viewButton: {
-    backgroundColor: '#007AFF',
-  },
-  deleteButton: {
-    backgroundColor: '#F44336',
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 14,
+  imageIndicator: {
+    color: '#007AFF',
     fontWeight: '500',
   },
   emptyContainer: {
@@ -418,5 +464,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     padding: 15,
     borderRadius: 8,
+  },
+  imageContainer: {
+    backgroundColor: '#f8f8f8',
+    padding: 15,
+    borderRadius: 8,
+  },
+  imageLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    fontWeight: '500',
+  },
+  contentImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  fullModalImage: {
+    width: '100%',
+    flex: 1,
+    backgroundColor: '#f0f0f0',
+  },
+  fullImageView: {
+    flex: 1,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    marginBottom: 10,
+  },
+  backText: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 8,
   },
 });

@@ -13,7 +13,7 @@ export default function OrdersLayout() {
       }} 
     />
     <Stack.Screen 
-      name="new" 
+      name="orders" 
       options={{ 
         title: 'Realizar Pedido',
         headerStyle: { backgroundColor: '#4CAF50' },
@@ -22,7 +22,7 @@ export default function OrdersLayout() {
       }} 
     />
     <Stack.Screen 
-      name="old" 
+      name="history" 
       options={{ 
         title: 'Historial de Pedidos',
         headerStyle: { backgroundColor: '#FF9800' },

@@ -16,14 +16,14 @@ export default function OrdersScreen() {
       description: 'Crear nuevos pedidos de productos',
       icon: 'document-text',
       color: '#2196F3',
-      route: './orders'
+      route: './orders/orders'
     },
     {
       title: 'Historial de Pedidos',
       description: 'Ver pedidos anteriores',
       icon: 'time',
       color: '#FF9800',
-      route: './history'
+      route: './orders/history'
     }
   ];
 

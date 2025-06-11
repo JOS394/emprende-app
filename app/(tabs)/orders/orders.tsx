@@ -1,9 +1,12 @@
+// Función para tomar foto
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -14,456 +17,540 @@ import {
 } from 'react-native';
 import { OrdersService } from '../../../src/services/OrdersService';
 
+
 export default function OrdersScreen() {
-  const [dateOrder, setDateOrder] = useState(new Date());
-  const [dateStart, setDateStart] = useState(new Date());
-  const [dateEnd, setDateEnd] = useState(new Date());
-  const [content, setContent] = useState('');
-  const [vendor, setVendor] = useState('');
-  const [total, setTotal] = useState('');
-  const [isBold, setIsBold] = useState(false);
-  const [isItalic, setIsItalic] = useState(false);
-  
-  // Estados para controlar los pickers
-  const [showDatePicker, setShowDatePicker] = useState<string | null>(null);
+const [content, setContent] = useState('');
+const [vendor, setVendor] = useState('');
+const [total, setTotal] = useState('');
+const [dateStart, setDateStart] = useState(new Date());
+const [dateEnd, setDateEnd] = useState(new Date());
+const [showDatePicker, setShowDatePicker] = useState<'start' | 'end' | null>(null);
+const [inputMode, setInputMode] = useState<'text' | 'photo'>('text');
+const [photoUri, setPhotoUri] = useState<string | null>(null);
 
-  // Funciones del editor
-  const toggleBold = () => setIsBold(!isBold);
-  const toggleItalic = () => setIsItalic(!isItalic);
+// Configurar fechas por defecto (hoy + 7 días)
+useEffect(() => {
+  const today = new Date();
+  const nextWeek = new Date();
+  nextWeek.setDate(today.getDate() + 7);
   
-  const insertText = (text: string) => {
-    setContent(prev => prev + text);
-  };
+  setDateStart(today);
+  setDateEnd(nextWeek);
+}, []);
 
-  // Función para manejar cambios de fecha
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || new Date();
-    setShowDatePicker(null);
-    
-    if (showDatePicker === 'pedido') {
-      setDateOrder(currentDate);
-    } else if (showDatePicker === 'inicio') {
-      setDateStart(currentDate);
-    } else if (showDatePicker === 'fin') {
-      setDateEnd(currentDate);
+const formatDate = (date: Date) => {
+  return date.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+const formatDateRange = () => {
+  if (dateStart.toDateString() === dateEnd.toDateString()) {
+    return `Entregar el ${formatDate(dateStart)}`;
+  }
+  return `Entregar entre ${formatDate(dateStart)} - ${formatDate(dateEnd)}`;
+};
+
+const onDateChange = (event: any, selectedDate?: Date) => {
+  if (selectedDate) {
+    if (showDatePicker === 'start') {
+      setDateStart(selectedDate);
+      if (selectedDate > dateEnd) {
+        const newEnd = new Date(selectedDate);
+        newEnd.setDate(selectedDate.getDate() + 1);
+        setDateEnd(newEnd);
+      }
+    } else if (showDatePicker === 'end') {
+      if (selectedDate < dateStart) {
+        Alert.alert('Error', 'La fecha de fin no puede ser anterior a la fecha de inicio');
+      } else {
+        setDateEnd(selectedDate);
+      }
     }
-  };
+  }
+  setShowDatePicker(null);
+};
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-  };
 
-  const clearContent = () => {
+
+const savePedido = async () => {
+  if (inputMode === 'text' && !content.trim()) {
+    Alert.alert('Error', 'Debes agregar contenido al pedido');
+    return;
+  }
+
+  if (inputMode === 'photo' && !photoUri) {
+    Alert.alert('Error', 'Debes tomar una foto del pedido');
+    return;
+  }
+
+  if (!vendor.trim()) {
+    Alert.alert('Error', 'Debes especificar un proveedor');
+    return;
+  }
+
+  try {
+    const newOrder = {
+      date_order: new Date(), // Fecha automática de hoy
+      date_start: dateStart,
+      date_end: dateEnd,
+      vendor: vendor.trim(),
+      status: 'pending' as const,
+      content: inputMode === 'text' ? content.trim() : `Pedido con imagen: ${photoUri}`,
+      total: total ? parseFloat(total) : undefined
+    };
+
+    await OrdersService.create(newOrder);
+    
     Alert.alert(
-      'Limpiar contenido',
-      '¿Estás seguro de borrar todo el contenido?',
+      'Éxito', 
+      'Pedido guardado correctamente',
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Limpiar', onPress: () => setContent('') }
+        {
+          text: 'Ver Historial',
+          onPress: () => router.push('/orders/history')
+        },
+        {
+          text: 'Nuevo Pedido',
+          onPress: () => {
+            setContent('');
+            setVendor('');
+            setTotal('');
+            setPhotoUri(null);
+            setInputMode('text');
+            const today = new Date();
+            const nextWeek = new Date();
+            nextWeek.setDate(today.getDate() + 7);
+            setDateStart(today);
+            setDateEnd(nextWeek);
+          }
+        }
       ]
     );
-  };
+  } catch (error) {
+    Alert.alert('Error', 'No se pudo guardar el pedido');
+    console.error('Error guardando pedido:', error);
+  }
+};
 
-  const savePedido = async () => {
-    if (!content.trim()) {
-      Alert.alert('Error', 'Debes agregar contenido al pedido');
-      return;
-    }
+const takePhoto = async () => {
+  const { status } = await ImagePicker.requestCameraPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Error', 'Se necesitan permisos de cámara');
+    return;
+  }
 
-    if (!vendor.trim()) {
-      Alert.alert('Error', 'Debes especificar un proveedor');
-      return;
-    }
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [4, 3],
+    quality: 0.8,
+  });
 
-    try {
-      const newOrder = {
-        date_order: dateOrder,
-        date_start: dateStart,
-        date_end: dateEnd,
-        vendor: vendor.trim(),
-        status: 'pending' as const,
-        content: content.trim(),
-        total: total ? parseFloat(total) : undefined
-      };
+  if (!result.canceled && result.assets[0]) {
+    setPhotoUri(result.assets[0].uri);
+  }
+};
 
-      await OrdersService.create(newOrder);
-      
-      Alert.alert(
-        'Éxito', 
-        'Pedido guardado correctamente',
-        [
-          {
-            text: 'Ver Historial',
-            onPress: () => router.push('/orders/history')
-          },
-          {
-            text: 'Nuevo Pedido',
-            onPress: () => {
-              setContent('');
-              setVendor('');
-              setTotal('');
-              setDateOrder(new Date());
-              setDateStart(new Date());
-              setDateEnd(new Date());
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar el pedido');
-      console.error('Error guardando pedido:', error);
-    }
-  };
+// Función para seleccionar de galería
+const pickImage = async () => {
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [4, 3],
+    quality: 0.8,
+  });
 
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        {/* Header con fechas */}
-        <View style={styles.dateSection}>
-          <Text style={styles.sectionTitle}>Información del Pedido</Text>
-          
-          <View style={styles.dateRow}>
-            <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Proveedor *:</Text>
-              <TextInput
-                style={styles.input}
-                value={vendor}
-                onChangeText={setVendor}
-                placeholder="Nombre del proveedor"
-              />
-            </View>
-          </View>
+  if (!result.canceled && result.assets[0]) {
+    setPhotoUri(result.assets[0].uri);
+  }
+};
 
-          <View style={styles.dateRow}>
-            <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Total (opcional):</Text>
-              <TextInput
-                style={styles.input}
-                value={total}
-                onChangeText={setTotal}
-                placeholder="0.00"
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-          
-          <View style={styles.dateRow}>
-            <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Fecha de Pedido:</Text>
+const removePhoto = () => {
+  setPhotoUri(null);
+};
+
+return (
+  <ScrollView style={styles.container}>
+    <View style={styles.content}>
+      {/* Información básica */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Nuevo Pedido</Text>
+        
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Proveedor *</Text>
+          <TextInput
+            style={styles.input}
+            value={vendor}
+            onChangeText={setVendor}
+            placeholder="Nombre del proveedor"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Total (opcional)</Text>
+          <TextInput
+            style={styles.input}
+            value={total}
+            onChangeText={setTotal}
+            placeholder="0.00"
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Rango de fechas */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Fecha de entrega</Text>
+          <View style={styles.dateRangeContainer}>
+            <Text style={styles.dateRangeText}>{formatDateRange()}</Text>
+            <View style={styles.dateButtons}>
               <TouchableOpacity 
                 style={styles.dateButton}
-                onPress={() => setShowDatePicker('pedido')}
+                onPress={() => setShowDatePicker('start')}
               >
-                <Ionicons name="calendar-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatDate(dateOrder)}</Text>
+                <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+                <Text style={styles.dateButtonText}>Desde</Text>
               </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.dateRow}>
-            <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Entrega desde:</Text>
               <TouchableOpacity 
                 style={styles.dateButton}
-                onPress={() => setShowDatePicker('inicio')}
+                onPress={() => setShowDatePicker('end')}
               >
-                <Ionicons name="calendar-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatDate(dateStart)}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Entrega hasta:</Text>
-              <TouchableOpacity 
-                style={styles.dateButton}
-                onPress={() => setShowDatePicker('fin')}
-              >
-                <Ionicons name="calendar-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatDate(dateEnd)}</Text>
+                <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+                <Text style={styles.dateButtonText}>Hasta</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
+      </View>
 
-        {/* Editor WYSIWYG */}
-        <View style={styles.editorSection}>
-          <Text style={styles.sectionTitle}>Detalles del Pedido</Text>
-          
-          {/* Barra de herramientas */}
-          <View style={styles.toolbar}>
-            <TouchableOpacity 
-              style={[styles.toolButton, isBold && styles.activeButton]} 
-              onPress={toggleBold}
-            >
-              <Text style={[styles.toolText, isBold && styles.activeText]}>B</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.toolButton, isItalic && styles.activeButton]} 
-              onPress={toggleItalic}
-            >
-              <Text style={[styles.toolText, isItalic && styles.activeText]}>I</Text>
-            </TouchableOpacity>
+      {/* Detalles del pedido */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Detalles del Pedido</Text>
+        
+        <View style={styles.switchContainer}>
+          <TouchableOpacity 
+            style={[styles.switchButton, inputMode === 'text' && styles.switchButtonActive]}
+            onPress={() => setInputMode('text')}
+          >
+            <Ionicons name="document-text-outline" size={16} color={inputMode === 'text' ? 'white' : '#666'} />
+            <Text style={[styles.switchText, inputMode === 'text' && styles.switchTextActive]}>
+              Texto
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.switchButton, inputMode === 'photo' && styles.switchButtonActive]}
+            onPress={() => setInputMode('photo')}
+          >
+            <Ionicons name="camera-outline" size={16} color={inputMode === 'photo' ? 'white' : '#666'} />
+            <Text style={[styles.switchText, inputMode === 'photo' && styles.switchTextActive]}>
+              Foto
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-            <View style={styles.separator} />
-
-            <TouchableOpacity 
-              style={styles.toolButton} 
-              onPress={() => insertText('\n• ')}
-            >
-              <Ionicons name="list" size={16} color="#666" />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.toolButton} 
-              onPress={() => insertText('\n1. ')}
-            >
-              <Ionicons name="list-outline" size={16} color="#666" />
-            </TouchableOpacity>
-
-            <View style={styles.separator} />
-
-            <TouchableOpacity style={styles.toolButton} onPress={clearContent}>
-              <Ionicons name="trash-outline" size={16} color="#f44336" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Área de texto */}
+        {inputMode === 'text' ? (
           <TextInput
-            style={[
-              styles.editor,
-              isBold && styles.boldText,
-              isItalic && styles.italicText
-            ]}
+            style={styles.contentInput}
             multiline
-            placeholder="Escribe los detalles de tu pedido aquí...
-            
-Puedes incluir:
-• Lista de productos
-• Cantidades necesarias  
-• Especificaciones especiales
-• Notas para el proveedor"
+            placeholder="Describe tu pedido aquí...
+
+Ejemplos:
+• 10 cajas de papel A4
+• 5 cartuchos de tinta negra
+• 2 resmas de papel fotográfico
+
+Tip: Usa el micrófono del teclado para dictar tu pedido"
             value={content}
             onChangeText={setContent}
             textAlignVertical="top"
           />
-
-          {/* Plantillas rápidas */}
-          <View style={styles.templatesSection}>
-            <Text style={styles.templatesTitle}>Plantillas rápidas:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <TouchableOpacity 
-                style={styles.templateButton}
-                onPress={() => insertText('\n\nProducto: \nCantidad: \nEspecificaciones: \n')}
-              >
-                <Text style={styles.templateText}>+ Producto</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.templateButton}
-                onPress={() => insertText('\n\nNOTA IMPORTANTE: \n')}
-              >
-                <Text style={styles.templateText}>+ Nota</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.templateButton}
-                onPress={() => insertText('\n\nCondiciones de entrega: \n')}
-              >
-                <Text style={styles.templateText}>+ Condiciones</Text>
-              </TouchableOpacity>
-            </ScrollView>
+        ) : (
+          <View style={styles.photoContainer}>
+            {photoUri ? (
+              <View style={styles.photoPreview}>
+                <Image source={{ uri: photoUri }} style={styles.previewImage} />
+                <View style={styles.photoActions}>
+                  <TouchableOpacity style={styles.retakeButton} onPress={takePhoto}>
+                    <Ionicons name="camera-outline" size={20} color="#007AFF" />
+                    <Text style={styles.retakeText}>Tomar otra</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.removeButton} onPress={removePhoto}>
+                    <Ionicons name="trash-outline" size={20} color="#F44336" />
+                    <Text style={styles.removeText}>Eliminar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <Ionicons name="camera-outline" size={48} color="#ccc" />
+                <Text style={styles.photoPlaceholderText}>Toma una foto de tu pedido</Text>
+                <View style={styles.photoButtons}>
+                  <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+                    <Ionicons name="camera" size={20} color="white" />
+                    <Text style={styles.photoButtonText}>Tomar Foto</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.galleryButton} onPress={pickImage}>
+                    <Ionicons name="images" size={20} color="#007AFF" />
+                    <Text style={styles.galleryButtonText}>Galería</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
-        </View>
-
-        {/* Botones de acción */}
-        <View style={styles.actionsSection}>
-          <TouchableOpacity style={styles.previewButton}>
-            <Ionicons name="eye-outline" size={20} color="#666" />
-            <Text style={styles.previewText}>Vista previa</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.saveButton} onPress={savePedido}>
-            <Ionicons name="save-outline" size={20} color="white" />
-            <Text style={styles.saveText}>Guardar Pedido</Text>
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
 
-      {/* Date Picker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={
-            showDatePicker === 'pedido' ? dateOrder :
-            showDatePicker === 'inicio' ? dateStart : dateEnd
-          }
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onDateChange}
-        />
-      )}
-    </ScrollView>
-  );
+      {/* Botón de guardar */}
+      <TouchableOpacity style={styles.saveButton} onPress={savePedido}>
+        <Ionicons name="save-outline" size={24} color="white" />
+        <Text style={styles.saveText}>Guardar Pedido</Text>
+      </TouchableOpacity>
+    </View>
+
+    {/* Date Picker */}
+    {showDatePicker && (
+      <DateTimePicker
+        value={showDatePicker === 'start' ? dateStart : dateEnd}
+        mode="date"
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        onChange={onDateChange}
+        minimumDate={showDatePicker === 'end' ? dateStart : new Date()}
+      />
+    )}
+  </ScrollView>
+);
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    padding: 15,
-  },
-  dateSection: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  dateField: {
-    flex: 1,
-  },
-  dateLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: 'white',
-    gap: 8,
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  editorSection: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  toolButton: {
-    padding: 8,
-    borderRadius: 6,
-    minWidth: 32,
-    alignItems: 'center',
-    marginRight: 5,
-  },
-  activeButton: {
-    backgroundColor: '#007AFF',
-  },
-  toolText: {
-    fontWeight: 'bold',
-    color: '#666',
-  },
-  activeText: {
-    color: 'white',
-  },
-  separator: {
-    width: 1,
-    height: 20,
-    backgroundColor: '#ddd',
-    marginHorizontal: 10,
-  },
-  editor: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    minHeight: 200,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  boldText: {
-    fontWeight: 'bold',
-  },
-  italicText: {
-    fontStyle: 'italic',
-  },
-  templatesSection: {
-    marginTop: 15,
-  },
-  templatesTitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
-  },
-  templateButton: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  templateText: {
-    color: '#007AFF',
-    fontSize: 12,
-  },
-  actionsSection: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  previewButton: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  previewText: {
-    color: '#666',
-    fontWeight: '500',
-  },
-  saveButton: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  saveText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
+container: {
+  flex: 1,
+  backgroundColor: '#f5f5f5',
+},
+content: {
+  padding: 20,
+},
+section: {
+  backgroundColor: 'white',
+  borderRadius: 12,
+  padding: 20,
+  marginBottom: 20,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+sectionTitle: {
+  fontSize: 20,
+  fontWeight: 'bold',
+  color: '#333',
+  marginBottom: 20,
+},
+inputGroup: {
+  marginBottom: 15,
+},
+label: {
+  fontSize: 16,
+  color: '#333',
+  marginBottom: 8,
+  fontWeight: '500',
+},
+input: {
+  borderWidth: 1,
+  borderColor: '#ddd',
+  borderRadius: 10,
+  padding: 15,
+  fontSize: 16,
+  backgroundColor: '#fafafa',
+},
+dateRangeContainer: {
+  borderWidth: 1,
+  borderColor: '#ddd',
+  borderRadius: 10,
+  padding: 15,
+  backgroundColor: '#fafafa',
+},
+dateRangeText: {
+  fontSize: 16,
+  color: '#333',
+  marginBottom: 10,
+},
+dateButtons: {
+  flexDirection: 'row',
+  gap: 10,
+},
+dateButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#f0f8ff',
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderRadius: 8,
+  gap: 5,
+},
+dateButtonText: {
+  color: '#007AFF',
+  fontSize: 14,
+  fontWeight: '500',
+},
+switchContainer: {
+  flexDirection: 'row',
+  backgroundColor: '#f0f0f0',
+  borderRadius: 8,
+  padding: 2,
+  marginBottom: 20,
+  alignSelf: 'center',
+},
+switchButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderRadius: 6,
+  gap: 6,
+},
+switchButtonActive: {
+  backgroundColor: '#007AFF',
+},
+switchText: {
+  fontSize: 14,
+  color: '#666',
+  fontWeight: '500',
+},
+switchTextActive: {
+  color: 'white',
+},
+contentInput: {
+  borderWidth: 1,
+  borderColor: '#ddd',
+  borderRadius: 10,
+  padding: 20,
+  minHeight: 200,
+  fontSize: 16,
+  lineHeight: 24,
+  backgroundColor: '#fafafa',
+},
+photoContainer: {
+  minHeight: 200,
+},
+photoPlaceholder: {
+  borderWidth: 2,
+  borderColor: '#ddd',
+  borderStyle: 'dashed',
+  borderRadius: 10,
+  padding: 30,
+  alignItems: 'center',
+  backgroundColor: '#fafafa',
+  minHeight: 200,
+  justifyContent: 'center',
+},
+photoPlaceholderText: {
+  fontSize: 16,
+  color: '#666',
+  marginTop: 10,
+  marginBottom: 20,
+  textAlign: 'center',
+},
+photoButtons: {
+  flexDirection: 'row',
+  gap: 15,
+},
+photoButton: {
+  flexDirection: 'row',
+  backgroundColor: '#007AFF',
+  paddingHorizontal: 20,
+  paddingVertical: 12,
+  borderRadius: 8,
+  alignItems: 'center',
+  gap: 8,
+},
+photoButtonText: {
+  color: 'white',
+  fontSize: 14,
+  fontWeight: '500',
+},
+galleryButton: {
+  flexDirection: 'row',
+  backgroundColor: '#f0f8ff',
+  paddingHorizontal: 20,
+  paddingVertical: 12,
+  borderRadius: 8,
+  alignItems: 'center',
+  gap: 8,
+  borderWidth: 1,
+  borderColor: '#007AFF',
+},
+galleryButtonText: {
+  color: '#007AFF',
+  fontSize: 14,
+  fontWeight: '500',
+},
+photoPreview: {
+  borderRadius: 10,
+  overflow: 'hidden',
+},
+previewImage: {
+  width: '100%',
+  height: 250,
+  borderRadius: 10,
+},
+photoActions: {
+  flexDirection: 'row',
+  justifyContent: 'center',
+  gap: 15,
+  marginTop: 15,
+},
+retakeButton: {
+  flexDirection: 'row',
+  backgroundColor: '#f0f8ff',
+  paddingHorizontal: 15,
+  paddingVertical: 10,
+  borderRadius: 8,
+  alignItems: 'center',
+  gap: 6,
+  borderWidth: 1,
+  borderColor: '#007AFF',
+},
+retakeText: {
+  color: '#007AFF',
+  fontSize: 14,
+  fontWeight: '500',
+},
+removeButton: {
+  flexDirection: 'row',
+  backgroundColor: '#ffebee',
+  paddingHorizontal: 15,
+  paddingVertical: 10,
+  borderRadius: 8,
+  alignItems: 'center',
+  gap: 6,
+  borderWidth: 1,
+  borderColor: '#F44336',
+},
+removeText: {
+  color: '#F44336',
+  fontSize: 14,
+  fontWeight: '500',
+},
+saveButton: {
+  flexDirection: 'row',
+  backgroundColor: '#4CAF50',
+  padding: 20,
+  borderRadius: 12,
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 10,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 4,
+  elevation: 3,
+},
+saveText: {
+  color: 'white',
+  fontSize: 18,
+  fontWeight: 'bold',
+},
 });
