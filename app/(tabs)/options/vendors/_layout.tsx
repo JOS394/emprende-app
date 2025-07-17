@@ -7,7 +7,7 @@ export default function VendorsLayout() {
         name="index" 
         options={{ 
           title: 'Proveedores',
-          headerStyle: { backgroundColor: '#007AFF' },
+          headerStyle: { backgroundColor: '#2196F3' },
           headerTintColor: 'white',
           headerTitleStyle: { fontWeight: 'bold' }
         }} 
@@ -16,7 +16,7 @@ export default function VendorsLayout() {
         name="management" 
         options={{ 
           title: 'Gestión de Proveedores',
-          headerStyle: { backgroundColor: '#4CAF50' },
+          headerStyle: { backgroundColor: '#2196F3' },
           headerTintColor: 'white',
           headerTitleStyle: { fontWeight: 'bold' }
         }} 

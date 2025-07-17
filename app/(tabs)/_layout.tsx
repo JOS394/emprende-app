@@ -13,21 +13,21 @@ export default function TabLayout() {
 
           if (route.name === 'index') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'search') {
-            iconName = focused ? 'search' : 'search-outline';
-          } else if (route.name === 'profile') {
-            iconName = focused ? 'person' : 'person-outline';
-          } else if (route.name === 'company') {
-            iconName = focused ? 'business' : 'business-outline';
-          } else if (route.name === 'vendors') {
-            iconName = focused ? 'business' : 'business-outline';
+          } else if (route.name === 'products') {
+            iconName = focused ? 'cube' : 'cube-outline';
+          } else if (route.name === 'customerOrder') {
+            iconName = focused ? 'receipt' : 'receipt-outline';
+          } else if (route.name === 'customers') {
+            iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'options') {
+            iconName = focused ? 'options' : 'options-outline';
           } else {
             iconName = 'help-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#007AFF',
+        tabBarActiveTintColor: '#2196F3',
         tabBarInactiveTintColor: 'gray',
         tabBarStyle: {
           backgroundColor: 'white',
@@ -48,46 +48,71 @@ export default function TabLayout() {
         },
       }}
     >
+      {/* Tab principal - Dashboard */}
       <Tabs.Screen 
         name="index" 
         options={{ 
           title: 'Inicio',
-          headerTitle: 'Business App - Inicio'
+          headerTitle: 'Mi Negocio'
         }} 
       />
+      
+      {/* Core del negocio */}
       <Tabs.Screen 
-        name="search" 
+        name="products" 
         options={{ 
-          title: 'Buscar',
-          headerTitle: 'Buscar'
-        }} 
-      />
-      <Tabs.Screen 
-        name="company" 
-        options={{ 
-          title: 'Empresa',
-          headerTitle: 'Mi Empresa'
-        }} 
-      />
-      <Tabs.Screen 
-        name="vendors" 
-        options={{ 
-          title: 'Proveedores',
+          title: 'Productos',
           headerShown: false
         }} 
       />
+      
       <Tabs.Screen 
-        name="profile" 
+        name="customerOrder" 
         options={{ 
-          title: 'Perfil',
-          headerTitle: 'Mi Perfil'
+          title: 'Pedidos',
+          headerShown: false
+        }} 
+      />
+      
+      <Tabs.Screen 
+        name="customers" 
+        options={{ 
+          title: 'Clientes',
+          headerShown: false
+        }} 
+      />
+
+      <Tabs.Screen 
+        name="options" 
+        options={{ 
+          title: 'Opciones',
+          headerShown: false
+        }} 
+      />
+            
+      {/* Ocultar las que no son core */}
+      <Tabs.Screen 
+        name="vendors" 
+        options={{ 
+          href: null, // Ocultar del tab bar
         }} 
       />
       <Tabs.Screen 
         name="orders" 
         options={{ 
-          title: 'Pedidos',
-          headerShown: false
+          href: null, // Ocultar del tab bar
+        }} 
+      />
+      <Tabs.Screen 
+        name="profile" 
+        options={{ 
+          href: null, // Ocultar del tab bar
+        }} 
+      />
+      <Tabs.Screen 
+        name="company" 
+        options={{ 
+          href: null, // Ocultar del tab bar
         }} 
       />
     </Tabs>

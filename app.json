@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "business-app",
-    "slug": "business-app",
+    "name": "emprende-app",
+    "slug": "emprende-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "businessapp",
+    "scheme": "emprendeapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -17,7 +17,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.businessapp"
+      "package": "com.spaindev.emprendeapp"
     },
     "web": {
       "bundler": "metro",
@@ -41,7 +41,8 @@
         {
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

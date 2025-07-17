@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
+import { ActionSheetMenu } from '../../../../src/components/common/ActionSheetMenu';
 
 import {
   Alert,
@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { VendorsService } from '../../../src/services/VendorsService';
+import { VendorsService } from '../../../../src/services/VendorsService';
 
 export default function ManagementScreen() {
 
