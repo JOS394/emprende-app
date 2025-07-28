@@ -17,7 +17,7 @@ import {
 
 
 
-const MoreScreen = ({ navigation }) => {
+const MoreScreen = ({ navigation }: { navigation: any }) => {
   const [userProfile, setUserProfile] = useState({
     name: 'Juan Pérez',
     email: 'juan@ejemplo.com',
@@ -99,7 +99,7 @@ const MoreScreen = ({ navigation }) => {
     },
   ];
 
-  const handleMenuPress = (item) => {
+  const handleMenuPress = (item: any) => {
     router.push(item.screen);
   };
 
@@ -118,6 +118,7 @@ const MoreScreen = ({ navigation }) => {
           onPress: async () => {
             await AsyncStorage.removeItem('userToken');
             // navigation.navigate('Login');
+            router.replace('/auth/login' as any);
             console.log('Sesión cerrada');
           },
         },
@@ -125,14 +126,14 @@ const MoreScreen = ({ navigation }) => {
     );
   };
 
-  const MenuItem = ({ item }) => (
+  const MenuItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.menuItem}
       onPress={() => handleMenuPress(item)}
       activeOpacity={0.7}
     >
       <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>
-        <Ionicons name={item.icon} size={24} color={item.color} />
+        <Ionicons name={item.icon as any} size={24} color={item.color} />
       </View>
       <View style={styles.menuTextContainer}>
         <Text style={styles.menuTitle}>{item.title}</Text>

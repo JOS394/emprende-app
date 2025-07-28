@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
 
@@ -987,14 +987,14 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 20,
   },
-  paymentButton: {
-    flex: 1,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
+  // paymentButton: {   
+  //   flex: 1,
+  //   padding: 12,
+  //   borderWidth: 1,
+  //   borderColor: '#ddd',
+  //   borderRadius: 8,
+  //   alignItems: 'center',
+  // },
   selectedPayment: {
     backgroundColor: '#e3f2fd',
     borderColor: '#2196F3',

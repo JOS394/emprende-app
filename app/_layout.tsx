@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import React, { useEffect } from 'react';
+import { AuthProvider } from '../src/contexts/AuthContext';
 import { LoadingProvider } from '../src/contexts/LoadingContext';
 import { initDatabase } from '../src/database/database';
 
@@ -15,9 +16,11 @@ export default function RootLayout() {
 
   return (
     <LoadingProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-      </Stack>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </AuthProvider>
     </LoadingProvider>
   );
 }

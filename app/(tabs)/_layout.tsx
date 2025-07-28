@@ -1,9 +1,14 @@
+import { Loading } from '@/src/components/common/Loading';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useRequireAuth } from '../../src/contexts/AuthContext';
 import { useLoading } from '../../src/contexts/LoadingContext';
 
 export default function TabLayout() {
   const { showLoading, hideLoading } = useLoading();
+  const { user, loading } = useRequireAuth();
+
+  if (loading) return <Loading />;
 
   return (
     <Tabs

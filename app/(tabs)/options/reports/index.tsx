@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 
@@ -139,7 +139,7 @@ export default function Reports() {
     );
   };
 
-  const PeriodButton = ({ period, title, isActive, onPress }) => (
+  const PeriodButton = ({ period, title, isActive, onPress }: { period: string, title: string, isActive: boolean, onPress: () => void }) => (
     <TouchableOpacity
       style={[styles.periodButton, isActive && styles.periodButtonActive]}
       onPress={onPress}
@@ -150,11 +150,11 @@ export default function Reports() {
     </TouchableOpacity>
   );
 
-  const MetricCard = ({ icon, title, value, subtitle, color, growth }) => (
+  const MetricCard = ({ icon, title, value, subtitle, color, growth }: { icon: string, title: string, value: string, subtitle: string, color: string, growth: number }) => (
     <View style={styles.metricCard}>
       <View style={styles.metricHeader}>
         <View style={[styles.metricIcon, { backgroundColor: color + '20' }]}>
-          <Ionicons name={icon} size={24} color={color} />
+          <Ionicons name={icon as any} size={24} color={color} />
         </View>
         {growth && (
           <View style={[styles.growthBadge, { backgroundColor: growth > 0 ? '#10B98120' : '#EF444420' }]}>
@@ -175,7 +175,7 @@ export default function Reports() {
     </View>
   );
 
-  const TopProductItem = ({ product, index }) => (
+  const TopProductItem = ({ product, index }: { product: any, index: number }) => (
     <View style={styles.topProductItem}>
       <View style={styles.productRank}>
         <Text style={styles.rankNumber}>{index + 1}</Text>
@@ -195,11 +195,11 @@ export default function Reports() {
     </View>
   );
 
-  const CustomerItem = ({ customer, index }) => (
+  const CustomerItem = ({ customer, index }: { customer: any, index: number }) => (
     <View style={styles.customerItem}>
       <View style={styles.customerAvatar}>
         <Text style={styles.customerInitial}>
-          {customer.name.split(' ').map(n => n[0]).join('')}
+          {customer.name.split(' ').map((n: string) => n[0]).join('')}
         </Text>
       </View>
       <View style={styles.customerInfo}>
@@ -272,11 +272,12 @@ export default function Reports() {
               value="146"
               subtitle="8 categorías"
               color="#3B82F6"
+              growth={0}
             />
             <MetricCard
               icon="people"
               title="Clientes Activos"
-              value={reportData.customers.total}
+              value={reportData.customers.total.toString()}
               subtitle={`${reportData.customers.new} nuevos`}
               color="#8B5CF6"
               growth={8.2}
@@ -331,6 +332,8 @@ export default function Reports() {
               chartConfig={chartConfig}
               style={styles.chart}
               showValuesOnTopOfBars={true}
+              yAxisLabel=""
+              yAxisSuffix=""
             />
           </View>
         </View>

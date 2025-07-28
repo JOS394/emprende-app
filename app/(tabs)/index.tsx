@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRequireAuth } from '../../src/contexts/AuthContext';
 import { useLoading } from '../../src/contexts/LoadingContext';
+import { supabase } from '../../src/lib/supabase';
 
 interface DashboardStats {
   todayOrders: number;
@@ -20,7 +22,9 @@ interface DashboardStats {
 }
 
 export default function HomeScreen() {
+  const { user, loading } = useRequireAuth();
   const { showLoading, hideLoading } = useLoading();
+  
   const [stats, setStats] = useState<DashboardStats>({
     todayOrders: 8,
     pendingOrders: 3,
@@ -63,6 +67,18 @@ export default function HomeScreen() {
       day: 'numeric'
     });
   };
+
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const { data, error } = await supabase.from('test').select('*').limit(1);
+        console.log('✅ Conexión exitosa:', !!supabase);
+      } catch (err) {
+        console.log('❌ Error:', err);
+      }
+    };
+    testConnection();
+  }, []);
 
   return (
     <ScrollView style={styles.container}>
