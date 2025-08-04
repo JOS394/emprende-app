@@ -1,20 +1,23 @@
+import { ProductsService } from '@/src/services/ProductsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    FlatList,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
+import { useRequireAuth } from '../../../src/contexts/AuthContext';
+
 
 interface Product {
   id: number;
@@ -30,6 +33,7 @@ interface Product {
 }
 
 export default function ProductosScreen() {
+  const { user } = useRequireAuth();
   const [productos, setProductos] = useState<Product[]>([]);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
@@ -50,33 +54,73 @@ export default function ProductosScreen() {
     category: '',
   });
 
-  // Datos de ejemplo para demostrar
   useEffect(() => {
-    setProductos([
-      {
-        id: 1,
-        name: 'Camiseta Básica',
-        description: 'Camiseta de algodón 100%, disponible en varios colores',
-        price: 25000,
-        cost: 15000,
-        stock: 50,
-        category: 'Ropa',
-        isActive: true,
-        createdAt: new Date(),
-      },
-      {
-        id: 2,
-        name: 'Mug Personalizado',
-        description: 'Taza cerámica con diseños personalizados',
-        price: 18000,
-        cost: 8000,
-        stock: 25,
-        category: 'Accesorios',
-        isActive: true,
-        createdAt: new Date(),
-      },
-    ]);
+    loadProducts();
   }, []);
+  
+  // Agregar estas nuevas funciones
+  const loadProducts = async () => {
+    const result = await ProductsService.getProducts();
+    if (result.success) {
+      setProductos(result.products || []);
+    } else {
+      Alert.alert('Error', 'No se pudieron cargar los productos');
+    }
+  };
+  
+  // Reemplazar la función saveProduct
+  const saveProduct = async () => {
+    if (!formData.name.trim()) {
+      Alert.alert('Error', 'El nombre del producto es requerido');
+      return;
+    }
+  
+    if (!formData.price || isNaN(Number(formData.price))) {
+      Alert.alert('Error', 'El precio debe ser un número válido');
+      return;
+    }
+  
+    if (editingProduct) {
+      // Actualizar producto existente
+      const result = await ProductsService.updateProduct(editingProduct.id.toString(), {
+        name: formData.name,
+        description: formData.description,
+        price: Number(formData.price),
+        cost: formData.cost ? Number(formData.cost) : null,
+        stock: Number(formData.stock) || 0,
+        image: formData.image,
+        category: formData.category || 'Otros',
+      });
+  
+      if (result.success) {
+        Alert.alert('Éxito', 'Producto actualizado');
+        loadProducts(); // Recargar productos
+      } else {
+        Alert.alert('Error', result.error);
+      }
+    } else {
+      // Crear nuevo producto
+      const result = await ProductsService.createProduct({
+        name: formData.name,
+        description: formData.description,
+        price: Number(formData.price),
+        cost: formData.cost ? Number(formData.cost) : null,
+        stock: Number(formData.stock) || 0,
+        image: formData.image,
+        category: formData.category || 'Otros',
+      });
+  
+      if (result.success) {
+        Alert.alert('Éxito', 'Producto creado');
+        loadProducts(); // Recargar productos
+      } else {
+        Alert.alert('Error', result.error);
+      }
+    }
+  
+    setModalVisible(false);
+    clearForm();
+  };
 
   const categories = ['todos', 'Ropa', 'Accesorios', 'Electrónicos', 'Hogar', 'Otros'];
 
@@ -175,7 +219,7 @@ export default function ProductosScreen() {
     }
   };
 
-  const saveProduct = () => {
+  const saveProduct2 = () => {
     if (!formData.name.trim()) {
       Alert.alert('Error', 'El nombre del producto es requerido');
       return;

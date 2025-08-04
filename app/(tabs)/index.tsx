@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +11,7 @@ import {
 } from "react-native";
 import { useRequireAuth } from '../../src/contexts/AuthContext';
 import { useLoading } from '../../src/contexts/LoadingContext';
-import { supabase } from '../../src/lib/supabase';
+import { DashboardService } from '../../src/services/DashboardService';
 
 interface DashboardStats {
   todayOrders: number;
@@ -22,19 +23,21 @@ interface DashboardStats {
 }
 
 export default function HomeScreen() {
-  const { user, loading } = useRequireAuth();
+  const { user, loading: authLoading } = useRequireAuth();
   const { showLoading, hideLoading } = useLoading();
   
   const [stats, setStats] = useState<DashboardStats>({
-    todayOrders: 8,
-    pendingOrders: 3,
-    todaySales: 125000,
-    lowStockProducts: 5,
-    totalProducts: 42,
-    totalClients: 28,
+    todayOrders: 0,
+    pendingOrders: 0,
+    todaySales: 0,
+    lowStockProducts: 0,
+    totalProducts: 0,
+    totalClients: 0,
   });
 
   const [greeting, setGreeting] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [businessName, setBusinessName] = useState('Mi Negocio');
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -46,6 +49,32 @@ export default function HomeScreen() {
       setGreeting('Buenas noches');
     }
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user]);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    const result = await DashboardService.getDashboardStats();
+    
+    if (result.success) {
+      setStats(result.stats || {
+        todayOrders: 0,
+        pendingOrders: 0,
+        todaySales: 0,
+        lowStockProducts: 0,
+        totalProducts: 0,
+        totalClients: 0,
+      });
+    } else {
+      console.error('Error cargando estadísticas:', result.error);
+    }
+    
+    setLoading(false);
+  };
 
   const handleNavigation = (screenName: string) => {
     showLoading();
@@ -68,17 +97,14 @@ export default function HomeScreen() {
     });
   };
 
-  useEffect(() => {
-    const testConnection = async () => {
-      try {
-        const { data, error } = await supabase.from('test').select('*').limit(1);
-        console.log('✅ Conexión exitosa:', !!supabase);
-      } catch (err) {
-        console.log('❌ Error:', err);
-      }
-    };
-    testConnection();
-  }, []);
+  if (authLoading || loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2196F3" />
+        <Text style={styles.loadingText}>Cargando estadísticas...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -87,7 +113,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.businessName}>Mi Negocio</Text>
+            <Text style={styles.businessName}>{businessName}</Text>
             <Text style={styles.date}>{getTodayDate()}</Text>
           </View>
           <Ionicons name="storefront" size={40} color="#2196F3" />
@@ -236,11 +262,20 @@ export default function HomeScreen() {
               </View>
               <View style={styles.businessStat}>
                 <Text style={styles.businessStatNumber}>
-                  {stats.todayOrders + 156}
+                  {stats.todayOrders}
                 </Text>
-                <Text style={styles.businessStatLabel}>Ventas Total</Text>
+                <Text style={styles.businessStatLabel}>Órdenes Hoy</Text>
               </View>
             </View>
+            
+            {/* Botón para actualizar */}
+            <TouchableOpacity 
+              style={styles.refreshButton} 
+              onPress={loadDashboardData}
+            >
+              <Ionicons name="refresh" size={16} color="#2196F3" />
+              <Text style={styles.refreshText}>Actualizar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -255,6 +290,17 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
   header: {
     flexDirection: 'row',
@@ -445,6 +491,7 @@ const styles = StyleSheet.create({
   businessStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    marginBottom: 15,
   },
   businessStat: {
     alignItems: 'center',
@@ -458,5 +505,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    gap: 5,
+  },
+  refreshText: {
+    fontSize: 14,
+    color: '#2196F3',
+    fontWeight: '500',
   },
 });

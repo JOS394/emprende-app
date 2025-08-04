@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Linking,
@@ -13,37 +14,33 @@ import {
   View,
 } from 'react-native';
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
+import { useRequireAuth } from '../../../src/contexts/AuthContext';
+import { CustomersService } from '../../../src/services/CustomersService';
 
-interface Purchase {
-  id: number;
-  date: Date;
-  total: number;
-  products: string[];
-}
-
-interface Client {
-  id: number;
+interface Customer {
+  id: string;
   name: string;
   phone: string;
   email?: string;
   address?: string;
   notes?: string;
-  totalPurchases: number;
-  lastPurchase?: Date;
-  purchaseHistory: Purchase[];
-  isActive: boolean;
+  totalOrders: number;
+  totalSpent: number;
   createdAt: Date;
-  customerType: 'regular' | 'vip' | 'new';
+  updatedAt: Date;
+  orderHistory?: any[];
 }
 
 export default function ClientesScreen() {
-  const [clientes, setClientes] = useState<Client[]>([]);
+  const { user, loading: authLoading } = useRequireAuth();
+  const [clientes, setClientes] = useState<Customer[]>([]);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Customer | null>(null);
+  const [editingClient, setEditingClient] = useState<Customer | null>(null);
   const [filterType, setFilterType] = useState<string>('todos');
+  const [loading, setLoading] = useState(false);
 
   // Estados para el formulario
   const [formData, setFormData] = useState({
@@ -54,77 +51,28 @@ export default function ClientesScreen() {
     notes: '',
   });
 
-  // Datos de ejemplo
   useEffect(() => {
-    setClientes([
-      {
-        id: 1,
-        name: 'María González',
-        phone: '+503 7123-4567',
-        email: 'maria.gonzalez@email.com',
-        address: 'Col. Escalón, San Salvador',
-        notes: 'Cliente preferencial, siempre paga a tiempo',
-        totalPurchases: 125000,
-        lastPurchase: new Date('2024-01-15'),
-        customerType: 'vip',
-        isActive: true,
-        createdAt: new Date('2023-06-10'),
-        purchaseHistory: [
-          {
-            id: 1,
-            date: new Date('2024-01-15'),
-            total: 68000,
-            products: ['Camiseta Básica x2', 'Mug Personalizado x1']
-          },
-          {
-            id: 2,
-            date: new Date('2024-01-10'),
-            total: 57000,
-            products: ['Llavero Acrílico x3', 'Stickers Pack x2']
-          }
-        ]
-      },
-      {
-        id: 2,
-        name: 'Carlos Martínez',
-        phone: '+503 6987-6543',
-        email: 'carlos.martinez@email.com',
-        address: 'Col. Miramonte, Santa Tecla',
-        totalPurchases: 45000,
-        lastPurchase: new Date('2024-01-12'),
-        customerType: 'regular',
-        isActive: true,
-        createdAt: new Date('2023-11-20'),
-        purchaseHistory: [
-          {
-            id: 3,
-            date: new Date('2024-01-12'),
-            total: 25000,
-            products: ['Llavero Acrílico x5']
-          }
-        ]
-      },
-      {
-        id: 3,
-        name: 'Ana López',
-        phone: '+503 7555-1234',
-        email: 'ana.lopez@email.com',
-        totalPurchases: 15000,
-        lastPurchase: new Date('2024-01-16'),
-        customerType: 'new',
-        isActive: true,
-        createdAt: new Date('2024-01-16'),
-        purchaseHistory: [
-          {
-            id: 4,
-            date: new Date('2024-01-16'),
-            total: 15000,
-            products: ['Mug Personalizado x1']
-          }
-        ]
-      },
-    ]);
-  }, []);
+    if (user) {
+      loadCustomers();
+    }
+  }, [user]);
+
+  const loadCustomers = async () => {
+    setLoading(true);
+    const result = await CustomersService.getCustomers();
+    if (result.success) {
+      setClientes(result.customers || []);
+    } else {
+      Alert.alert('Error', 'No se pudieron cargar los clientes');
+    }
+    setLoading(false);
+  };
+
+  const getCustomerType = (customer: Customer) => {
+    if (customer.totalOrders === 0) return 'new';
+    if (customer.totalSpent > 100000) return 'vip';
+    return 'regular';
+  };
 
   const clientTypes = ['todos', 'new', 'regular', 'vip'];
 
@@ -150,8 +98,9 @@ export default function ClientesScreen() {
     const matchesSearch = client.name.toLowerCase().includes(searchText.toLowerCase()) ||
                          client.phone.includes(searchText) ||
                          (client.email && client.email.toLowerCase().includes(searchText.toLowerCase()));
-    const matchesType = filterType === 'todos' || client.customerType === filterType;
-    return matchesSearch && matchesType && client.isActive;
+    const customerType = getCustomerType(client);
+    const matchesType = filterType === 'todos' || customerType === filterType;
+    return matchesSearch && matchesType;
   });
 
   const clearForm = () => {
@@ -170,7 +119,7 @@ export default function ClientesScreen() {
     setModalVisible(true);
   };
 
-  const openEditModal = (client: Client) => {
+  const openEditModal = (client: Customer) => {
     setFormData({
       name: client.name,
       phone: client.phone,
@@ -182,12 +131,17 @@ export default function ClientesScreen() {
     setModalVisible(true);
   };
 
-  const handleViewClient = (client: Client) => {
-    setSelectedClient(client);
-    setDetailModalVisible(true);
+  const handleViewClient = async (client: Customer) => {
+    const result = await CustomersService.getCustomerById(Number(client.id));
+    if (result.success) {
+      setSelectedClient(result.customer || null);
+      setDetailModalVisible(true);
+    } else {
+      Alert.alert('Error', 'No se pudieron cargar los detalles del cliente');
+    }
   };
 
-  const handleDeleteClient = (client: Client) => {
+  const handleDeleteClient = (client: Customer) => {
     Alert.alert(
       'Eliminar Cliente',
       `¿Estás seguro de eliminar a "${client.name}"?`,
@@ -196,18 +150,21 @@ export default function ClientesScreen() {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: () => {
-            setClientes(prev => prev.map(c => 
-              c.id === client.id ? { ...c, isActive: false } : c
-            ));
-            Alert.alert('Éxito', 'Cliente eliminado');
+          onPress: async () => {
+            const result = await CustomersService.deleteCustomer(Number(client.id));
+            if (result.success) {
+              Alert.alert('Éxito', 'Cliente eliminado');
+              loadCustomers();
+            } else {
+              Alert.alert('Error', result.error);
+            }
           }
         }
       ]
     );
   };
 
-  const saveClient = () => {
+  const saveClient = async () => {
     if (!formData.name.trim()) {
       Alert.alert('Error', 'El nombre del cliente es requerido');
       return;
@@ -218,40 +175,21 @@ export default function ClientesScreen() {
       return;
     }
 
+    let result;
     if (editingClient) {
-      // Actualizar cliente existente
-      setClientes(prev =>
-        prev.map(c => c.id === editingClient.id ? {
-          ...c,
-          name: formData.name,
-          phone: formData.phone,
-          email: formData.email,
-          address: formData.address,
-          notes: formData.notes,
-        } : c)
-      );
-      Alert.alert('Éxito', 'Cliente actualizado');
+      result = await CustomersService.updateCustomer(Number(editingClient.id), formData);
     } else {
-      // Crear nuevo cliente
-      const newClient: Client = {
-        id: Date.now(),
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email,
-        address: formData.address,
-        notes: formData.notes,
-        totalPurchases: 0,
-        customerType: 'new',
-        isActive: true,
-        createdAt: new Date(),
-        purchaseHistory: [],
-      };
-      setClientes(prev => [...prev, newClient]);
-      Alert.alert('Éxito', 'Cliente creado');
+      result = await CustomersService.createCustomer(formData);
     }
 
-    setModalVisible(false);
-    clearForm();
+    if (result.success) {
+      Alert.alert('Éxito', editingClient ? 'Cliente actualizado' : 'Cliente creado');
+      loadCustomers();
+      setModalVisible(false);
+      clearForm();
+    } else {
+      Alert.alert('Error', result.error);
+    }
   };
 
   const makePhoneCall = (phone: string) => {
@@ -268,11 +206,13 @@ export default function ClientesScreen() {
     Linking.openURL(`mailto:${email}`);
   };
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: number | undefined) => {
+    if (!price || isNaN(price)) return '$0';
     return `$${price.toLocaleString()}`;
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return 'Fecha no disponible';
     return date.toLocaleDateString('es-ES', {
       day: '2-digit',
       month: '2-digit',
@@ -280,16 +220,25 @@ export default function ClientesScreen() {
     });
   };
 
-  const getDaysSinceLastPurchase = (lastPurchase?: Date) => {
-    if (!lastPurchase) return null;
+  const getDaysSinceLastPurchase = (updatedAt?: Date) => {
+    if (!updatedAt) return null;
     const today = new Date();
-    const diffTime = Math.abs(today.getTime() - lastPurchase.getTime());
+    const diffTime = Math.abs(today.getTime() - updatedAt.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
 
-  const renderClientItem = ({ item }: { item: Client }) => {
-    const daysSinceLastPurchase = getDaysSinceLastPurchase(item.lastPurchase);
+  if (authLoading || loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#9C27B0" />
+      </View>
+    );
+  }
+
+  const renderClientItem = ({ item }: { item: Customer }) => {
+    const daysSinceLastPurchase = getDaysSinceLastPurchase(item.updatedAt);
+    const customerType = getCustomerType(item);
     
     return (
       <View style={styles.clientCard}>
@@ -297,8 +246,8 @@ export default function ClientesScreen() {
           <View style={styles.clientInfo}>
             <View style={styles.clientNameRow}>
               <Text style={styles.clientName}>{item.name}</Text>
-              <View style={[styles.typeBadge, { backgroundColor: getClientTypeColor(item.customerType) }]}>
-                <Text style={styles.typeText}>{getClientTypeText(item.customerType)}</Text>
+              <View style={[styles.typeBadge, { backgroundColor: getClientTypeColor(customerType) }]}>
+                <Text style={styles.typeText}>{getClientTypeText(customerType)}</Text>
               </View>
             </View>
             <Text style={styles.clientPhone}>{item.phone}</Text>
@@ -318,14 +267,19 @@ export default function ClientesScreen() {
         <View style={styles.clientStats}>
           <View style={styles.statItem}>
             <Ionicons name="cash-outline" size={16} color="#4CAF50" />
-            <Text style={styles.statText}>Total: {formatPrice(item.totalPurchases)}</Text>
+            <Text style={styles.statText}>Total: {formatPrice(item.totalSpent)}</Text>
           </View>
           
-          {item.lastPurchase && (
+          <View style={styles.statItem}>
+            <Ionicons name="bag-outline" size={16} color="#666" />
+            <Text style={styles.statText}>Órdenes: {item.totalOrders}</Text>
+          </View>
+          
+          {daysSinceLastPurchase && (
             <View style={styles.statItem}>
               <Ionicons name="time-outline" size={16} color="#666" />
               <Text style={styles.statText}>
-                Última compra: hace {daysSinceLastPurchase} días
+                Última actividad: hace {daysSinceLastPurchase} días
               </Text>
             </View>
           )}
@@ -364,7 +318,6 @@ export default function ClientesScreen() {
 
   return (
     <View style={styles.container}>
-
       {/* Filtros y búsqueda */}
       <View style={styles.filtersContainer}>
         <View style={styles.searchContainer}>
@@ -531,37 +484,37 @@ export default function ClientesScreen() {
                   <View style={styles.detailSection}>
                     <Text style={styles.sectionTitle}>Estadísticas</Text>
                     <Text style={styles.detailText}>
-                      Total de compras: {formatPrice(selectedClient.totalPurchases)}
+                      Total de compras: {formatPrice(selectedClient.totalSpent)}
                     </Text>
                     <Text style={styles.detailText}>
-                      Tipo de cliente: {getClientTypeText(selectedClient.customerType)}
+                      Tipo de cliente: {getClientTypeText(getCustomerType(selectedClient))}
                     </Text>
                     <Text style={styles.detailText}>
-                      Órdenes realizadas: {selectedClient.purchaseHistory.length}
+                      Órdenes realizadas: {selectedClient.totalOrders}
                     </Text>
-                    {selectedClient.lastPurchase && (
-                      <Text style={styles.detailText}>
-                        Última compra: {formatDate(selectedClient.lastPurchase)}
-                      </Text>
-                    )}
                   </View>
 
-                  {selectedClient.purchaseHistory.length > 0 && (
+                  {selectedClient.orderHistory && selectedClient.orderHistory.length > 0 && (
                     <View style={styles.detailSection}>
-                      <Text style={styles.sectionTitle}>Historial de Compras</Text>
-                      {selectedClient.purchaseHistory.map((purchase, index) => (
+                      <Text style={styles.sectionTitle}>Historial de Órdenes</Text>
+                      {selectedClient.orderHistory.map((order, index) => (
                         <View key={index} style={styles.purchaseItem}>
                           <View style={styles.purchaseHeader}>
                             <Text style={styles.purchaseDate}>
-                              {formatDate(purchase.date)}
+                              {order.orderNumber}
                             </Text>
                             <Text style={styles.purchaseTotal}>
-                              {formatPrice(purchase.total)}
+                              {formatPrice(order.total)}
                             </Text>
                           </View>
                           <Text style={styles.purchaseProducts}>
-                            {purchase.products.join(', ')}
+                            {formatDate(order.date)} - {order.status}
                           </Text>
+                          {order.products.length > 0 && (
+                            <Text style={styles.purchaseProducts}>
+                              {order.products.join(', ')}
+                            </Text>
+                          )}
                         </View>
                       ))}
                     </View>
@@ -588,16 +541,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  header: {
-    backgroundColor: '#9C27B0',
-    padding: 20,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
   },
   filtersContainer: {
     backgroundColor: 'white',
@@ -856,6 +804,7 @@ const styles = StyleSheet.create({
   purchaseDate: {
     fontSize: 14,
     color: '#666',
+    fontWeight: '500',
   },
   purchaseTotal: {
     fontSize: 14,

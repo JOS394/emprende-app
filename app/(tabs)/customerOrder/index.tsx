@@ -1,6 +1,8 @@
+import { useRequireAuth } from '@/src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
@@ -12,9 +14,11 @@ import {
   View,
 } from 'react-native';
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
+import { CustomerOrdersService } from '../../../src/services/CustomerOrderService';
+
 
 interface OrderItem {
-  productId: number;
+  productId: string; // Cambiar de number a string
   productName: string;
   quantity: number;
   price: number;
@@ -36,13 +40,6 @@ interface CustomerOrder {
   isPaid: boolean;
 }
 
-// Productos disponibles (normalmente vendrían de la base de datos)
-const availableProducts = [
-  { id: 1, name: 'Camiseta Básica', price: 25000 },
-  { id: 2, name: 'Mug Personalizado', price: 18000 },
-  { id: 3, name: 'Llavero Acrílico', price: 5000 },
-  { id: 4, name: 'Stickers Pack', price: 8000 },
-];
 
 export default function PedidosClientesScreen() {
   const [pedidos, setPedidos] = useState<CustomerOrder[]>([]);
@@ -51,7 +48,7 @@ export default function PedidosClientesScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('todos');
-
+  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   // Estados para el formulario
   const [formData, setFormData] = useState({
     customerName: '',
@@ -62,42 +59,30 @@ export default function PedidosClientesScreen() {
   });
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const { user, loading } = useRequireAuth();
+  if (loading) return <ActivityIndicator style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }} />;
 
   // Datos de ejemplo
   useEffect(() => {
-    setPedidos([
-      {
-        id: 1,
-        customerName: 'María González',
-        customerPhone: '+503 7123-4567',
-        customerAddress: 'Col. Escalón, San Salvador',
-        items: [
-          { productId: 1, productName: 'Camiseta Básica', quantity: 2, price: 25000, subtotal: 50000 },
-          { productId: 2, productName: 'Mug Personalizado', quantity: 1, price: 18000, subtotal: 18000 },
-        ],
-        total: 68000,
-        status: 'pending',
-        orderDate: new Date('2024-01-15'),
-        paymentMethod: 'transfer',
-        isPaid: false,
-      },
-      {
-        id: 2,
-        customerName: 'Carlos Martínez',
-        customerPhone: '+503 6987-6543',
-        customerAddress: 'Col. Miramonte, Santa Tecla',
-        items: [
-          { productId: 3, productName: 'Llavero Acrílico', quantity: 5, price: 5000, subtotal: 25000 },
-        ],
-        total: 25000,
-        status: 'delivered',
-        orderDate: new Date('2024-01-14'),
-        deliveryDate: new Date('2024-01-16'),
-        paymentMethod: 'cash',
-        isPaid: true,
-      },
-    ]);
+    loadOrders();
+    loadProducts();
   }, []);
+
+  const loadOrders = async () => {
+    const result: any = await CustomerOrdersService.getOrders();
+    if (result.success) {
+      setPedidos(result.orders || []);
+    }
+  };
+
+  // Cargar productos
+  const loadProducts = async () => {
+    const result: any = await CustomerOrdersService.getAvailableProducts();
+    if (result.success) {
+      setAvailableProducts(result.products || []);
+    }
+  };
+
 
   const statusOptions = ['todos', 'pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 
@@ -127,7 +112,7 @@ export default function PedidosClientesScreen() {
 
   const filteredOrders = pedidos.filter(order => {
     const matchesSearch = order.customerName.toLowerCase().includes(searchText.toLowerCase()) ||
-                         order.customerPhone.includes(searchText);
+      order.customerPhone.includes(searchText);
     const matchesStatus = filterStatus === 'todos' || order.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -145,7 +130,7 @@ export default function PedidosClientesScreen() {
 
   const addProduct = () => {
     const newItem: OrderItem = {
-      productId: 0,
+      productId: '', // String vacío en lugar de 0
       productName: '',
       quantity: 1,
       price: 0,
@@ -157,11 +142,11 @@ export default function PedidosClientesScreen() {
   const updateOrderItem = (index: number, field: keyof OrderItem, value: any) => {
     const updatedItems = [...orderItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
-    
+
     if (field === 'quantity' || field === 'price') {
       updatedItems[index].subtotal = updatedItems[index].quantity * updatedItems[index].price;
     }
-    
+
     setOrderItems(updatedItems);
   };
 
@@ -179,7 +164,7 @@ export default function PedidosClientesScreen() {
     return orderItems.reduce((total, item) => total + item.subtotal, 0);
   };
 
-  const saveOrder = () => {
+  const saveOrder = async () => {
     if (!formData.customerName.trim()) {
       Alert.alert('Error', 'El nombre del cliente es requerido');
       return;
@@ -195,47 +180,80 @@ export default function PedidosClientesScreen() {
       return;
     }
 
-    const invalidItems = orderItems.filter(item => !item.productName || item.quantity <= 0);
-    if (invalidItems.length > 0) {
-      Alert.alert('Error', 'Todos los productos deben tener nombre y cantidad válida');
+    const invalidItems = orderItems.filter(item => 
+      !item.productId || 
+      item.productId === '' || 
+      !item.productName || 
+      item.quantity <= 0
+
+    );
+
+    const itemsWithoutProduct = orderItems.filter(item => item.productId === '0');
+    if (itemsWithoutProduct.length > 0) {
+      Alert.alert('Error', 'Debe seleccionar todos los productos');
       return;
     }
 
-    const newOrder: CustomerOrder = {
-      id: Date.now(),
+    const result = await CustomerOrdersService.createOrder({
       customerName: formData.customerName,
       customerPhone: formData.customerPhone,
       customerAddress: formData.customerAddress,
-      items: orderItems,
-      total: calculateTotal(),
-      status: 'pending',
-      orderDate: new Date(),
-      notes: formData.notes,
+      totalAmount: calculateTotal(),
       paymentMethod: formData.paymentMethod,
-      isPaid: false,
+      paymentStatus: 'pending',
+      notes: formData.notes,
+      items: orderItems.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.price
+      }))
+    });
+
+    if (result.success) {
+      Alert.alert('Éxito', 'Pedido creado');
+      loadOrders();
+      setModalVisible(false);
+      clearForm();
+    } else {
+      Alert.alert('Error', result.error || 'Error al crear el pedido');
+    }
+
+
+    const updateOrderStatus = async (orderId: number, newStatus: string) => {
+      const result = await CustomerOrdersService.updateOrderStatus(orderId, newStatus);
+      if (result.success) {
+        loadOrders();
+      }
     };
 
-    setPedidos(prev => [newOrder, ...prev]);
-    Alert.alert('Éxito', 'Pedido creado correctamente');
+    // Toggle pago
+    const togglePaymentStatus = async (orderId: number, currentPaid: boolean) => {
+      const result = await CustomerOrdersService.updateOrder(orderId, { isPaid: !currentPaid } as any);
+      if (result.success) {
+        loadOrders();
+      }
+    };
+
     setModalVisible(false);
     clearForm();
+    loadOrders();
   };
 
   const updateOrderStatus = (orderId: number, newStatus: string) => {
-    setPedidos(prev => prev.map(order => 
-      order.id === orderId 
-        ? { 
-            ...order, 
-            status: newStatus as any,
-            deliveryDate: newStatus === 'delivered' ? new Date() : order.deliveryDate
-          }
+    setPedidos(prev => prev.map(order =>
+      order.id === orderId
+        ? {
+          ...order,
+          status: newStatus as any,
+          deliveryDate: newStatus === 'delivered' ? new Date() : order.deliveryDate
+        }
         : order
     ));
     Alert.alert('Éxito', `Pedido marcado como ${getStatusText(newStatus)}`);
   };
 
   const togglePaymentStatus = (orderId: number) => {
-    setPedidos(prev => prev.map(order => 
+    setPedidos(prev => prev.map(order =>
       order.id === orderId ? { ...order, isPaid: !order.isPaid } : order
     ));
   };
@@ -266,12 +284,13 @@ export default function PedidosClientesScreen() {
       ]
     );
   };
-
+  
   const formatPrice = (price: number) => {
-    return `$${price.toLocaleString()}`;
+    return `$${(price || 0).toLocaleString()}`;
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return 'Fecha no disponible';
     return date.toLocaleDateString('es-ES', {
       day: '2-digit',
       month: '2-digit',
@@ -287,7 +306,7 @@ export default function PedidosClientesScreen() {
           <Text style={styles.customerName}>{item.customerName}</Text>
           <Text style={styles.customerPhone}>{item.customerPhone}</Text>
         </View>
-        
+
         <View style={styles.orderMeta}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
             <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
@@ -306,14 +325,14 @@ export default function PedidosClientesScreen() {
           <Ionicons name="calendar-outline" size={16} color="#666" />
           <Text style={styles.orderDetailText}>Fecha: {formatDate(item.orderDate)}</Text>
         </View>
-        
+
         <View style={styles.orderRow}>
           <Ionicons name="bag-outline" size={16} color="#666" />
           <Text style={styles.orderDetailText}>
             {item.items.length} producto{item.items.length !== 1 ? 's' : ''}
           </Text>
         </View>
-        
+
         <View style={styles.orderRow}>
           <Ionicons name="cash-outline" size={16} color="#666" />
           <Text style={styles.orderDetailText}>Total: {formatPrice(item.total)}</Text>
@@ -328,43 +347,43 @@ export default function PedidosClientesScreen() {
       {/* Acciones rápidas */}
       <View style={styles.quickActions}>
         {item.status === 'pending' && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.confirmButton]}
             onPress={() => updateOrderStatus(item.id, 'confirmed')}
           >
             <Text style={styles.actionButtonText}>Confirmar</Text>
           </TouchableOpacity>
         )}
-        
+
         {item.status === 'confirmed' && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.preparingButton]}
             onPress={() => updateOrderStatus(item.id, 'preparing')}
           >
             <Text style={styles.actionButtonText}>Preparando</Text>
           </TouchableOpacity>
         )}
-        
+
         {item.status === 'preparing' && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.readyButton]}
             onPress={() => updateOrderStatus(item.id, 'ready')}
           >
             <Text style={styles.actionButtonText}>Listo</Text>
           </TouchableOpacity>
         )}
-        
+
         {item.status === 'ready' && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.deliveredButton]}
             onPress={() => updateOrderStatus(item.id, 'delivered')}
           >
             <Text style={styles.actionButtonText}>Entregar</Text>
           </TouchableOpacity>
         )}
-        
+
         {!item.isPaid && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.paymentButton]}
             onPress={() => togglePaymentStatus(item.id)}
           >
@@ -445,7 +464,7 @@ export default function PedidosClientesScreen() {
 
               {/* Información del cliente */}
               <Text style={styles.sectionTitle}>Información del Cliente</Text>
-              
+
               <TextInput
                 style={styles.input}
                 placeholder="Nombre del cliente *"
@@ -478,7 +497,7 @@ export default function PedidosClientesScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {orderItems.map((item, index) => (
+                {orderItems.map((item: any, index: number) => (
                   <View key={index} style={styles.productItem}>
                     <View style={styles.productRow}>
                       <View style={styles.productSelector}>
@@ -500,7 +519,7 @@ export default function PedidosClientesScreen() {
                           </TouchableOpacity>
                         ))}
                       </View>
-                      
+
                       <TouchableOpacity
                         style={styles.removeButton}
                         onPress={() => removeOrderItem(index)}
@@ -596,7 +615,7 @@ export default function PedidosClientesScreen() {
                 <>
                   <View style={styles.detailHeader}>
                     <Text style={styles.modalTitle}>Pedido #{selectedOrder.id}</Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.closeButton}
                       onPress={() => setDetailModalVisible(false)}
                     >
@@ -631,8 +650,8 @@ export default function PedidosClientesScreen() {
                     <Text style={styles.detailText}>Fecha: {formatDate(selectedOrder.orderDate)}</Text>
                     <Text style={styles.detailText}>Estado: {getStatusText(selectedOrder.status)}</Text>
                     <Text style={styles.detailText}>
-                      Pago: {selectedOrder.paymentMethod === 'cash' ? 'Efectivo' : 
-                             selectedOrder.paymentMethod === 'transfer' ? 'Transferencia' : 'Tarjeta'}
+                      Pago: {selectedOrder.paymentMethod === 'cash' ? 'Efectivo' :
+                        selectedOrder.paymentMethod === 'transfer' ? 'Transferencia' : 'Tarjeta'}
                     </Text>
                     <Text style={styles.detailText}>
                       Estado de pago: {selectedOrder.isPaid ? 'Pagado' : 'Pendiente'}
