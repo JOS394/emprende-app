@@ -187,7 +187,7 @@ export default function HomeScreen() {
           <View style={styles.actionsGrid}>
             <TouchableOpacity 
               style={[styles.actionCard, styles.clientsAction]}
-              onPress={() => handleNavigation('clients')}
+              onPress={() => handleNavigation('customers')}
             >
               <Ionicons name="people" size={32} color="#9C27B0" />
               <Text style={styles.actionTitle}>Clientes</Text>
