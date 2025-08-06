@@ -42,6 +42,7 @@ export default function ProductosScreen() {
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('todos');
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
 
   // Estados para el formulario
   const [formData, setFormData] = useState({
@@ -57,7 +58,7 @@ export default function ProductosScreen() {
   useEffect(() => {
     loadProducts();
   }, []);
-  
+
   // Agregar estas nuevas funciones
   const loadProducts = async () => {
     const result = await ProductsService.getProducts();
@@ -67,19 +68,19 @@ export default function ProductosScreen() {
       Alert.alert('Error', 'No se pudieron cargar los productos');
     }
   };
-  
+
   // Reemplazar la función saveProduct
   const saveProduct = async () => {
     if (!formData.name.trim()) {
       Alert.alert('Error', 'El nombre del producto es requerido');
       return;
     }
-  
+
     if (!formData.price || isNaN(Number(formData.price))) {
       Alert.alert('Error', 'El precio debe ser un número válido');
       return;
     }
-  
+
     if (editingProduct) {
       // Actualizar producto existente
       const result = await ProductsService.updateProduct(editingProduct.id.toString(), {
@@ -91,7 +92,7 @@ export default function ProductosScreen() {
         image: formData.image,
         category: formData.category || 'Otros',
       });
-  
+
       if (result.success) {
         Alert.alert('Éxito', 'Producto actualizado');
         loadProducts(); // Recargar productos
@@ -109,7 +110,7 @@ export default function ProductosScreen() {
         image: formData.image,
         category: formData.category || 'Otros',
       });
-  
+
       if (result.success) {
         Alert.alert('Éxito', 'Producto creado');
         loadProducts(); // Recargar productos
@@ -117,7 +118,7 @@ export default function ProductosScreen() {
         Alert.alert('Error', result.error);
       }
     }
-  
+
     setModalVisible(false);
     clearForm();
   };
@@ -126,7 +127,7 @@ export default function ProductosScreen() {
 
   const filteredProducts = productos.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchText.toLowerCase());
+      product.description.toLowerCase().includes(searchText.toLowerCase());
     const matchesCategory = filterCategory === 'todos' || product.category === filterCategory;
     return matchesSearch && matchesCategory && product.isActive;
   });
@@ -165,6 +166,7 @@ export default function ProductosScreen() {
 
   const handleViewProduct = (product: Product) => {
     setSelectedProduct(product);
+    setDetailModalVisible(true);
   };
 
   const handleDeleteProduct = (product: Product) => {
@@ -177,7 +179,7 @@ export default function ProductosScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
-            setProductos(prev => prev.map(p => 
+            setProductos(prev => prev.map(p =>
               p.id === product.id ? { ...p, isActive: false } : p
             ));
             Alert.alert('Éxito', 'Producto eliminado');
@@ -296,7 +298,7 @@ export default function ProductosScreen() {
             </View>
           )}
         </View>
-        
+
         <View style={styles.productInfo}>
           <Text style={styles.productName}>{item.name}</Text>
           <Text style={styles.productCategory}>{item.category}</Text>
@@ -396,16 +398,26 @@ export default function ProductosScreen() {
 
               <View style={styles.imageSection}>
                 {formData.image ? (
-                  <TouchableOpacity onPress={() => openImageModal(formData.image)}>
-                    <Image source={{ uri: formData.image }} style={styles.formImage} />
-                  </TouchableOpacity>
+                  <View style={styles.imageContainer}>
+                    <TouchableOpacity onPress={() => openImageModal(formData.image)}>
+                      <Image source={{ uri: formData.image }} style={styles.formImage} />
+                    </TouchableOpacity>
+
+                    {/* ✅ Botón para eliminar imagen */}
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => setFormData(prev => ({ ...prev, image: '' }))}
+                    >
+                      <Ionicons name="trash" size={16} color="white" />
+                    </TouchableOpacity>
+                  </View>
                 ) : (
                   <View style={styles.formImagePlaceholder}>
                     <Ionicons name="image-outline" size={48} color="#ccc" />
                     <Text style={styles.imageHint}>Toca para agregar imagen</Text>
                   </View>
                 )}
-                
+
                 <View style={styles.imageButtons}>
                   <TouchableOpacity style={styles.imageButton} onPress={takePhoto}>
                     <Ionicons name="camera" size={20} color="white" />
@@ -494,26 +506,81 @@ export default function ProductosScreen() {
         onRequestClose={() => setImageModalVisible(false)}
       >
         <View style={styles.imageModalOverlay}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.imageModalCloseButton}
             onPress={() => setImageModalVisible(false)}
           >
             <Ionicons name="close" size={30} color="white" />
           </TouchableOpacity>
-          
+
           <Image
             source={{ uri: selectedImageUri }}
             style={styles.fullScreenImage}
             resizeMode="contain"
           />
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.imageModalBackground}
             onPress={() => setImageModalVisible(false)}
           />
         </View>
       </Modal>
+
+      {/* Modal de detalles del producto */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={detailModalVisible}
+        onRequestClose={() => setDetailModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <ScrollView>
+              {selectedProduct && (
+                <>
+                  <View style={styles.detailHeader}>
+                    <Text style={styles.modalTitle}>{selectedProduct.name}</Text>
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={() => setDetailModalVisible(false)}
+                    >
+                      <Ionicons name="close" size={24} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {selectedProduct.image && (
+                    <View style={styles.detailImageContainer}>
+                      <Image source={{ uri: selectedProduct.image }} style={styles.detailImage} />
+                    </View>
+                  )}
+
+                  <View style={styles.detailSection}>
+                    <Text style={styles.sectionTitle}>Información del Producto</Text>
+                    <Text style={styles.detailText}>Categoría: {selectedProduct.category}</Text>
+                    <Text style={styles.detailText}>Precio: {formatPrice(selectedProduct.price)}</Text>
+                    {selectedProduct.cost && (
+                      <Text style={styles.detailText}>Costo: {formatPrice(selectedProduct.cost)}</Text>
+                    )}
+                    <Text style={styles.detailText}>Stock: {selectedProduct.stock} unidades</Text>
+                    <Text style={styles.detailText}>
+                      Fecha de creación: {selectedProduct.createdAt.toLocaleDateString()}
+                    </Text>
+                  </View>
+
+                  {selectedProduct.description && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.sectionTitle}>Descripción</Text>
+                      <Text style={styles.detailText}>{selectedProduct.description}</Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
+
   );
 }
 
@@ -523,7 +590,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    backgroundColor:  '#fff',
+    backgroundColor: '#fff',
     padding: 20,
     paddingTop: 40,
   },
@@ -816,5 +883,67 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: -1,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 0,
+    right:0,
+    zIndex: 2,
+    padding: 0,
+  },
+  detailImageContainer: {
+    marginBottom: 15,
+  },
+  detailImage: {
+    alignSelf: 'center',
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+  },
+  detailSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  detailText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  detailButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  detailButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  detailModal: {
+    flex: 1,
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    bottom: 17,
+    right: 2,
+    backgroundColor: '#f44336',
+    padding: 5,
+    borderRadius: 15,
   },
 });

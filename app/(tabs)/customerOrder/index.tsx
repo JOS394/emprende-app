@@ -26,7 +26,7 @@ interface OrderItem {
 }
 
 interface CustomerOrder {
-  id: number;
+  id: string;
   customerName: string;
   customerPhone: string;
   customerAddress: string;
@@ -49,6 +49,14 @@ export default function PedidosClientesScreen() {
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+  const [editingOrder, setEditingOrder] = useState<CustomerOrder | null>(null);
+  const [productPickerVisible, setProductPickerVisible] = useState(false);
+  const [localQuantityInputs, setLocalQuantityInputs] = useState<{ [index: number]: string }>({});
+  const [selectedProductIndex, setSelectedProductIndex] = useState<number | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+
+
+
   // Estados para el formulario
   const [formData, setFormData] = useState({
     customerName: '',
@@ -126,6 +134,7 @@ export default function PedidosClientesScreen() {
       paymentMethod: 'cash',
     });
     setOrderItems([]);
+    setEditingOrder(null);
   };
 
   const addProduct = () => {
@@ -158,6 +167,7 @@ export default function PedidosClientesScreen() {
     updateOrderItem(index, 'productId', product.id);
     updateOrderItem(index, 'productName', product.name);
     updateOrderItem(index, 'price', product.price);
+    updateOrderItem(index, 'subtotal', product.price * orderItems[index].quantity);
   };
 
   const calculateTotal = () => {
@@ -180,13 +190,17 @@ export default function PedidosClientesScreen() {
       return;
     }
 
-    const invalidItems = orderItems.filter(item => 
-      !item.productId || 
-      item.productId === '' || 
-      !item.productName || 
+    const invalidItems = orderItems.filter(item =>
+      !item.productId ||
+      item.productId === '' ||
+      !item.productName ||
       item.quantity <= 0
-
     );
+
+    if (invalidItems.length > 0) {
+      Alert.alert('Error', 'Todos los productos deben estar seleccionados y tener cantidad válida');
+      return;
+    }
 
     const itemsWithoutProduct = orderItems.filter(item => item.productId === '0');
     if (itemsWithoutProduct.length > 0) {
@@ -194,68 +208,79 @@ export default function PedidosClientesScreen() {
       return;
     }
 
-    const result = await CustomerOrdersService.createOrder({
-      customerName: formData.customerName,
-      customerPhone: formData.customerPhone,
-      customerAddress: formData.customerAddress,
-      totalAmount: calculateTotal(),
-      paymentMethod: formData.paymentMethod,
-      paymentStatus: 'pending',
-      notes: formData.notes,
-      items: orderItems.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.price
-      }))
-    });
+    let result;
 
+    if (editingOrder) {
+      // ✅ Actualizar pedido existente
+      result = await CustomerOrdersService.updateOrder(editingOrder.id, {
+        customerName: formData.customerName,
+        customerPhone: formData.customerPhone,
+        customerAddress: formData.customerAddress,
+        totalAmount: calculateTotal(),
+        paymentMethod: formData.paymentMethod,
+        notes: formData.notes,
+        // Nota: Los items no se actualizan en esta versión básica
+      });
+
+      if (result.success) {
+        Alert.alert('Éxito', 'Pedido actualizado');
+      } else {
+        Alert.alert('Error', result.error || 'Error al actualizar el pedido');
+      }
+    } else {
+      // ✅ Crear nuevo pedido
+      result = await CustomerOrdersService.createOrder({
+        customerName: formData.customerName,
+        customerPhone: formData.customerPhone,
+        customerAddress: formData.customerAddress,
+        totalAmount: calculateTotal(),
+        paymentMethod: formData.paymentMethod,
+        paymentStatus: 'pending',
+        notes: formData.notes,
+        items: orderItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.price
+        }))
+      });
+
+      if (result.success) {
+        Alert.alert('Éxito', 'Pedido creado');
+      } else {
+        Alert.alert('Error', result.error || 'Error al crear el pedido');
+      }
+    }
+
+    // ✅ Solo continuar si fue exitoso
     if (result.success) {
-      Alert.alert('Éxito', 'Pedido creado');
       loadOrders();
       setModalVisible(false);
       clearForm();
-    } else {
-      Alert.alert('Error', result.error || 'Error al crear el pedido');
     }
-
-
-    const updateOrderStatus = async (orderId: number, newStatus: string) => {
-      const result = await CustomerOrdersService.updateOrderStatus(orderId, newStatus);
-      if (result.success) {
-        loadOrders();
-      }
-    };
-
-    // Toggle pago
-    const togglePaymentStatus = async (orderId: number, currentPaid: boolean) => {
-      const result = await CustomerOrdersService.updateOrder(orderId, { isPaid: !currentPaid } as any);
-      if (result.success) {
-        loadOrders();
-      }
-    };
-
-    setModalVisible(false);
-    clearForm();
-    loadOrders();
   };
 
-  const updateOrderStatus = (orderId: number, newStatus: string) => {
-    setPedidos(prev => prev.map(order =>
-      order.id === orderId
-        ? {
-          ...order,
-          status: newStatus as any,
-          deliveryDate: newStatus === 'delivered' ? new Date() : order.deliveryDate
-        }
-        : order
-    ));
-    Alert.alert('Éxito', `Pedido marcado como ${getStatusText(newStatus)}`);
+  const togglePaymentStatus = async (orderId: string, currentPaid: boolean) => {
+    const result = await CustomerOrdersService.updateOrder(orderId, {
+      paymentStatus: currentPaid ? 'pending' : 'paid'
+    });
+
+    if (result.success) {
+      Alert.alert('Éxito', currentPaid ? 'Pago marcado como pendiente' : 'Pago marcado como pagado');
+      loadOrders(); // Recarga los datos desde Supabase
+    } else {
+      Alert.alert('Error', result.error || 'No se pudo actualizar el estado del pago');
+    }
   };
 
-  const togglePaymentStatus = (orderId: number) => {
-    setPedidos(prev => prev.map(order =>
-      order.id === orderId ? { ...order, isPaid: !order.isPaid } : order
-    ));
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    const result = await CustomerOrdersService.updateOrderStatus(orderId, newStatus);
+    if (result.success) {
+      Alert.alert('Éxito', `Pedido marcado como ${getStatusText(newStatus)}`);
+      loadOrders(); // Recarga los datos desde Supabase
+    } else {
+      Alert.alert('Error', result.error || 'No se pudo actualizar el pedido');
+    }
   };
 
   const handleViewOrder = (order: CustomerOrder) => {
@@ -264,7 +289,24 @@ export default function PedidosClientesScreen() {
   };
 
   const handleEditOrder = (order: CustomerOrder) => {
-    Alert.alert('Información', 'Función de edición pendiente de implementar');
+    setFormData({
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerAddress: order.customerAddress || '',
+      notes: order.notes || '',
+      paymentMethod: order.paymentMethod,
+    });
+
+    setOrderItems(order.items.map(item => ({
+      productId: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      price: item.price,
+      subtotal: item.subtotal,
+    })));
+
+    setEditingOrder(order);
+    setModalVisible(true);
   };
 
   const handleDeleteOrder = (order: CustomerOrder) => {
@@ -284,7 +326,25 @@ export default function PedidosClientesScreen() {
       ]
     );
   };
-  
+
+  const openProductSelector = (index: number) => {
+    setSelectedProductIndex(index);
+    setProductPickerVisible(true);
+  };
+
+  const closeProductSelector = () => {
+    setProductPickerVisible(false);
+    setSelectedProductIndex(null);
+  };
+
+  const handleProductSelect = (product: any) => {
+    if (selectedProductIndex !== null) {
+      selectProduct(selectedProductIndex, product); // tu función ya existente
+    }
+    closeProductSelector();
+  };
+
+
   const formatPrice = (price: number) => {
     return `$${(price || 0).toLocaleString()}`;
   };
@@ -385,7 +445,7 @@ export default function PedidosClientesScreen() {
         {!item.isPaid && (
           <TouchableOpacity
             style={[styles.actionButton, styles.paymentButton]}
-            onPress={() => togglePaymentStatus(item.id)}
+            onPress={() => togglePaymentStatus(item.id, item.isPaid)}
           >
             <Text style={styles.actionButtonText}>Marcar Pagado</Text>
           </TouchableOpacity>
@@ -460,18 +520,18 @@ export default function PedidosClientesScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <ScrollView>
-              <Text style={styles.modalTitle}>Nuevo Pedido</Text>
+              <Text style={styles.modalTitle}>
+                {editingOrder ? 'Editar Pedido' : 'Nuevo Pedido'}
+              </Text>
 
               {/* Información del cliente */}
               <Text style={styles.sectionTitle}>Información del Cliente</Text>
-
               <TextInput
                 style={styles.input}
                 placeholder="Nombre del cliente *"
                 value={formData.customerName}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, customerName: text }))}
               />
-
               <TextInput
                 style={styles.input}
                 placeholder="Teléfono *"
@@ -479,7 +539,6 @@ export default function PedidosClientesScreen() {
                 onChangeText={(text) => setFormData(prev => ({ ...prev, customerPhone: text }))}
                 keyboardType="phone-pad"
               />
-
               <TextInput
                 style={styles.input}
                 placeholder="Dirección"
@@ -488,61 +547,83 @@ export default function PedidosClientesScreen() {
                 multiline
               />
 
-              {/* Productos */}
-              <View style={styles.productsSection}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Productos</Text>
-                  <TouchableOpacity style={styles.addProductButton} onPress={addProduct}>
-                    <Ionicons name="add-circle" size={24} color="#2196F3" />
-                  </TouchableOpacity>
-                </View>
+              {/* Buscador de productos */}
+              <Text style={styles.sectionTitle}>Buscar Productos</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Escribe para buscar..."
+                value={productSearch}
+                onChangeText={setProductSearch}
+              />
 
-                {orderItems.map((item: any, index: number) => (
-                  <View key={index} style={styles.productItem}>
-                    <View style={styles.productRow}>
-                      <View style={styles.productSelector}>
-                        {availableProducts.map((product) => (
-                          <TouchableOpacity
-                            key={product.id}
-                            style={[
-                              styles.productOption,
-                              item.productId === product.id && styles.selectedProduct
-                            ]}
-                            onPress={() => selectProduct(index, product)}
-                          >
-                            <Text style={[
-                              styles.productOptionText,
-                              item.productId === product.id && styles.selectedProductText
-                            ]}>
-                              {product.name} - {formatPrice(product.price)}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-
+              {/* Lista de productos disponibles */}
+              {productSearch.trim().length > 0 &&
+                availableProducts
+                  .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                  .map((product) => (
+                    <View key={product.id} style={styles.availableProductCard}>
+                      <Text style={styles.productName}>{product.name}</Text>
+                      <Text style={styles.productPrice}>{formatPrice(product.price)}</Text>
                       <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => removeOrderItem(index)}
+                        style={styles.addProductButton}
+                        onPress={() => {
+                          const alreadyAdded = orderItems.find(i => i.productId === product.id);
+                          if (!alreadyAdded) {
+                            const newItem: OrderItem = {
+                              productId: product.id,
+                              productName: product.name,
+                              quantity: 1,
+                              price: product.price,
+                              subtotal: product.price,
+                            };
+                            setOrderItems([...orderItems, newItem]);
+                            setProductSearch(''); // Limpia la búsqueda
+                          }
+                        }}
                       >
-                        <Ionicons name="trash-outline" size={20} color="#F44336" />
+                        <Ionicons name="add-circle-outline" size={24} color="#4CAF50" />
                       </TouchableOpacity>
                     </View>
+                  ))}
 
-                    <View style={styles.quantityRow}>
-                      <Text style={styles.quantityLabel}>Cantidad:</Text>
-                      <TextInput
-                        style={styles.quantityInput}
-                        value={item.quantity.toString()}
-                        onChangeText={(text) => updateOrderItem(index, 'quantity', parseInt(text) || 0)}
-                        keyboardType="numeric"
-                      />
-                      <Text style={styles.subtotalText}>
-                        Subtotal: {formatPrice(item.subtotal)}
-                      </Text>
-                    </View>
+
+              {/* Lista de productos seleccionados */}
+              <Text style={styles.sectionTitle}>Productos Seleccionados</Text>
+              {orderItems.length === 0 && (
+                <Text style={{ color: '#888', fontStyle: 'italic' }}>No hay productos agregados</Text>
+              )}
+              {orderItems.map((item, index) => (
+                <View key={index} style={styles.selectedProductCard}>
+                  <View style={styles.selectedProductInfo}>
+                    <Text style={styles.productName}>{item.productName}</Text>
+                    <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
                   </View>
-                ))}
-              </View>
+
+                  <View style={styles.inlineRow}>
+                    <Text>Cantidad:</Text>
+                    <TextInput
+                      style={styles.quantityInput}
+                      keyboardType="numeric"
+                      value={localQuantityInputs[index] ?? item.quantity.toString()}
+                      onChangeText={(text) => {
+                        // Solo permitir números (vacío también)
+                        if (/^\d*$/.test(text)) {
+                          setLocalQuantityInputs(prev => ({ ...prev, [index]: text }));
+
+                          const qty = parseInt(text) || 0;
+                          updateOrderItem(index, 'quantity', qty);
+                          updateOrderItem(index, 'subtotal', qty * item.price);
+                        }
+                      }}
+                    />
+
+                    <Text style={styles.subtotalText}>Subtotal: {formatPrice(item.subtotal)}</Text>
+                    <TouchableOpacity onPress={() => removeOrderItem(index)}>
+                      <Ionicons name="trash-outline" size={20} color="#F44336" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
 
               {/* Total */}
               {orderItems.length > 0 && (
@@ -582,6 +663,7 @@ export default function PedidosClientesScreen() {
                 ))}
               </View>
 
+              {/* Botones */}
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={styles.cancelButton}
@@ -593,13 +675,16 @@ export default function PedidosClientesScreen() {
                   style={styles.saveButton}
                   onPress={saveOrder}
                 >
-                  <Text style={styles.saveButtonText}>Crear Pedido</Text>
+                  <Text style={styles.saveButtonText}>
+                    {editingOrder ? 'Actualizar Pedido' : 'Crear Pedido'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
         </View>
       </Modal>
+
 
       {/* Modal de detalles */}
       <Modal
@@ -915,9 +1000,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  addProductButton: {
-    padding: 5,
-  },
+
+
   productItem: {
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
@@ -928,10 +1012,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 10,
-  },
-  productSelector: {
-    flex: 1,
-    marginRight: 10,
   },
   productOption: {
     padding: 10,
@@ -949,40 +1029,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  selectedProductText: {
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-  removeButton: {
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quantityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  quantityLabel: {
-    fontSize: 14,
-    color: '#333',
-  },
-  quantityInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    width: 60,
-    textAlign: 'center',
-  },
-  subtotalText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2196F3',
-    flex: 1,
-    textAlign: 'right',
-  },
+
+
+
   totalSection: {
     backgroundColor: '#e8f5e8',
     padding: 15,
@@ -1109,4 +1158,123 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },
+
+  productsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+
+
+  productCard: {
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    backgroundColor: '#f9f9f9',
+  },
+
+  productTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+
+  productName: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+
+  productSelector: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+  },
+
+  productSelectorText: {
+    color: '#333',
+  },
+
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  quantityInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    padding: 5,
+    width: 60,
+    textAlign: 'center',
+  },
+
+  availableProductCard: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  addProductButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+
+  selectedProductCard: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+
+  selectedProductInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+
+  inlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+
+  productPrice: {
+    color: '#888',
+    fontSize: 14,
+  },
+
+  subtotalText: {
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+
+  label: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+
+
+
 });

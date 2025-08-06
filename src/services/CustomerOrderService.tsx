@@ -42,6 +42,7 @@ export class CustomerOrdersService {
                 totalAmount: order.total_amount,
                 paymentMethod: order.payment_method,
                 paymentStatus: order.payment_status,
+                isPaid: order.payment_status === 'paid',
                 deliveryAddress: order.delivery_address,
                 deliveryDate: order.delivery_date ? new Date(order.delivery_date) : null,
                 notes: order.notes,
@@ -136,7 +137,7 @@ export class CustomerOrdersService {
     }
 
     // Obtener orden por ID
-    static async getOrderById(orderId: number) {
+    static async getOrderById(orderId: string) {
         try {
           const { data, error } = await supabase
             .from('orders')
@@ -198,7 +199,7 @@ export class CustomerOrdersService {
         }
       }
 
-      static async updateOrder(orderId: number, updates: any) {
+      static async updateOrder(orderId: string, updates: any) {
         try {
           const { data, error } = await supabase
             .from('orders')
@@ -229,7 +230,7 @@ export class CustomerOrdersService {
       }
     
       // Actualizar solo el estado de la orden
-      static async updateOrderStatus(orderId: number, newStatus: string) {
+      static async updateOrderStatus(orderId: string, newStatus: string) {
         try {
           const { data, error } = await supabase
             .from('orders')
@@ -248,7 +249,7 @@ export class CustomerOrdersService {
       }
 
     // Eliminar orden (soft delete)
-    static async deleteOrder(orderId: number) {
+    static async deleteOrder(orderId: string) {
     try {
         // Primero obtener los items para restaurar stock si está pendiente
         const orderResult = await this.getOrderById(orderId);
