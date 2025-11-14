@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { logger } from '../utils/logger';
 
 export class DashboardService {
   
@@ -67,7 +68,7 @@ export class DashboardService {
 
       return { success: true, stats };
     } catch (error: any) {
-      console.error('Error obteniendo estadísticas:', error);
+      logger.error('Error obteniendo estadísticas:', error);
       return { success: false, error: error.message };
     }
   }
@@ -88,7 +89,7 @@ export class DashboardService {
 
       return { success: true, products: lowStockProducts };
     } catch (error: any) {
-      console.error('Error obteniendo productos con stock bajo:', error);
+      logger.error('Error obteniendo productos con stock bajo:', error);
       return { success: false, error: error.message };
     }
   }
@@ -124,7 +125,7 @@ export class DashboardService {
 
       return { success: true, orders };
     } catch (error: any) {
-      console.error('Error obteniendo órdenes recientes:', error);
+      logger.error('Error obteniendo órdenes recientes:', error);
       return { success: false, error: error.message };
     }
   }
@@ -152,7 +153,7 @@ export class DashboardService {
 
       return { success: true, salesByDay };
     } catch (error: any) {
-      console.error('Error obteniendo ventas semanales:', error);
+      logger.error('Error obteniendo ventas semanales:', error);
       return { success: false, error: error.message };
     }
   }

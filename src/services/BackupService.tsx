@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { logger } from '../utils/logger';
 
 export class BackupService {
 
@@ -66,7 +67,7 @@ export class BackupService {
         size: `${backupSize} MB`,
       };
     } catch (error: any) {
-      console.error('Error creating backup:', error);
+      logger.error('Error creating backup:', error);
       return { success: false, error: error.message };
     }
   }
@@ -101,7 +102,7 @@ export class BackupService {
         }
       };
     } catch (error: any) {
-      console.error('Error getting sync status:', error);
+      logger.error('Error getting sync status:', error);
       return {
         success: false,
         error: error.message,
@@ -132,7 +133,7 @@ export class BackupService {
 
       return { success: true, message: 'Sincronización completada' };
     } catch (error: any) {
-      console.error('Error syncing:', error);
+      logger.error('Error syncing:', error);
       return { success: false, error: error.message };
     }
   }
@@ -160,7 +161,7 @@ export class BackupService {
             onPress: async () => {
               // Aquí iría la lógica de restauración
               // Por seguridad, no implementamos eliminación automática
-              console.log('Restauración de backup preparada');
+              logger.log('Restauración de backup preparada');
             }
           }
         ]
@@ -168,7 +169,7 @@ export class BackupService {
 
       return { success: true, message: 'Backup cargado. Confirma para restaurar.' };
     } catch (error: any) {
-      console.error('Error restoring backup:', error);
+      logger.error('Error restoring backup:', error);
       return { success: false, error: error.message };
     }
   }
@@ -188,7 +189,7 @@ export class BackupService {
         filename: `emprende-backup-${new Date().toISOString().split('T')[0]}.json`,
       };
     } catch (error: any) {
-      console.error('Error exporting to JSON:', error);
+      logger.error('Error exporting to JSON:', error);
       return { success: false, error: error.message };
     }
   }
@@ -205,7 +206,7 @@ export class BackupService {
 
       return await this.restoreBackup(data);
     } catch (error: any) {
-      console.error('Error importing from JSON:', error);
+      logger.error('Error importing from JSON:', error);
       return { success: false, error: error.message };
     }
   }
@@ -230,7 +231,7 @@ export class BackupService {
         }
       };
     } catch (error: any) {
-      console.error('Error getting last backup info:', error);
+      logger.error('Error getting last backup info:', error);
       return { success: false, error: error.message };
     }
   }

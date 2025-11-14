@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
 import { useRequireAuth } from '../../../src/contexts/AuthContext';
+import { Validators } from '../../../src/utils/validators';
 
 
 interface Product {
@@ -71,38 +72,16 @@ export default function ProductosScreen() {
 
   // Reemplazar la función saveProduct
   const saveProduct = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert('Error', 'El nombre del producto es requerido');
-      return;
-    }
+    // Validar usando las utilidades centralizadas
+    const validation = Validators.product({
+      name: formData.name,
+      price: formData.price,
+      cost: formData.cost,
+      stock: formData.stock,
+    });
 
-    if (!formData.price || isNaN(Number(formData.price))) {
-      Alert.alert('Error', 'El precio debe ser un número válido');
-      return;
-    }
-
-    if (Number(formData.price) < 0) {
-      Alert.alert('Error', 'El precio no puede ser negativo');
-      return;
-    }
-
-    if (formData.cost && isNaN(Number(formData.cost))) {
-      Alert.alert('Error', 'El costo debe ser un número válido');
-      return;
-    }
-
-    if (formData.cost && Number(formData.cost) < 0) {
-      Alert.alert('Error', 'El costo no puede ser negativo');
-      return;
-    }
-
-    if (formData.stock && isNaN(Number(formData.stock))) {
-      Alert.alert('Error', 'El stock debe ser un número válido');
-      return;
-    }
-
-    if (formData.stock && Number(formData.stock) < 0) {
-      Alert.alert('Error', 'El stock no puede ser negativo');
+    if (!validation.isValid) {
+      Alert.alert('Error', validation.error);
       return;
     }
 

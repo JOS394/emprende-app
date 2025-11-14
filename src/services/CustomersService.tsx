@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { logger } from '../utils/logger';
 
 export class CustomersService {
   
@@ -27,7 +28,7 @@ export class CustomersService {
 
       return { success: true, customers };
     } catch (error: any) {
-      console.error('Error obteniendo clientes:', error);
+      logger.error('Error obteniendo clientes:', error);
       return { success: false, error: error.message };
     }
   }
@@ -72,7 +73,7 @@ export class CustomersService {
 
       return { success: true, customer };
     } catch (error: any) {
-      console.error('Error creando cliente:', error);
+      logger.error('Error creando cliente:', error);
       return { success: false, error: error.message };
     }
   }
@@ -110,7 +111,7 @@ export class CustomersService {
 
       return { success: true, customer };
     } catch (error: any) {
-      console.error('Error actualizando cliente:', error);
+      logger.error('Error actualizando cliente:', error);
       return { success: false, error: error.message };
     }
   }
@@ -142,7 +143,7 @@ export class CustomersService {
 
       return { success: true };
     } catch (error: any) {
-      console.error('Error eliminando cliente:', error);
+      logger.error('Error eliminando cliente:', error);
       return { success: false, error: error.message };
     }
   }
@@ -173,7 +174,7 @@ export class CustomersService {
 
       return { success: true, customers };
     } catch (error: any) {
-      console.error('Error buscando clientes:', error);
+      logger.error('Error buscando clientes:', error);
       return { success: false, error: error.message };
     }
   }
@@ -235,7 +236,7 @@ export class CustomersService {
 
       return { success: true, customer: customerData };
     } catch (error: any) {
-      console.error('Error obteniendo cliente:', error);
+      logger.error('Error obteniendo cliente:', error);
       return { success: false, error: error.message };
     }
   }
@@ -273,7 +274,7 @@ export class CustomersService {
 
       return { success: true, stats };
     } catch (error: any) {
-      console.error('Error obteniendo estadísticas:', error);
+      logger.error('Error obteniendo estadísticas:', error);
       return { success: false, error: error.message };
     }
   }
@@ -300,7 +301,7 @@ export class CustomersService {
 
       return { success: true, customers };
     } catch (error: any) {
-      console.error('Error obteniendo mejores clientes:', error);
+      logger.error('Error obteniendo mejores clientes:', error);
       return { success: false, error: error.message };
     }
   }
@@ -332,7 +333,7 @@ export class CustomersService {
 
       return { success: true, customers };
     } catch (error: any) {
-      console.error('Error obteniendo clientes inactivos:', error);
+      logger.error('Error obteniendo clientes inactivos:', error);
       return { success: false, error: error.message };
     }
   }

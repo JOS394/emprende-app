@@ -1,5 +1,6 @@
 // src/services/productsService.js
 import { supabase } from '../lib/supabase';
+import { logger } from '../utils/logger';
 
 export class ProductsService {
   
@@ -30,7 +31,7 @@ export class ProductsService {
 
       return { success: true, products };
     } catch (error: any) {
-      console.error('Error obteniendo productos:', error);
+      logger.error('Error obteniendo productos:', error);
       return { success: false, error: error.message };
     }
   }
@@ -77,7 +78,7 @@ export class ProductsService {
 
       return { success: true, product };
     } catch (error: any) {
-      console.error('Error creando producto:', error);
+      logger.error('Error creando producto:', error);
       return { success: false, error: error.message };
     }
   }
@@ -118,7 +119,7 @@ export class ProductsService {
 
       return { success: true, product };
     } catch (error: any) {
-      console.error('Error actualizando producto:', error);
+      logger.error('Error actualizando producto:', error);
       return { success: false, error: error.message };
     }
   }
@@ -135,7 +136,7 @@ export class ProductsService {
 
       return { success: true };
     } catch (error: any) {
-      console.error('Error eliminando producto:', error);
+      logger.error('Error eliminando producto:', error);
       return { success: false, error: error.message };
     }
   }
@@ -167,7 +168,7 @@ export class ProductsService {
 
       return { success: true, products };
     } catch (error: any) {
-      console.error('Error buscando productos:', error);
+      logger.error('Error buscando productos:', error);
       return { success: false, error: error.message };
     }
   }
@@ -199,7 +200,7 @@ export class ProductsService {
 
       return { success: true, products };
     } catch (error: any) {
-      console.error('Error obteniendo productos por categoría:', error);
+      logger.error('Error obteniendo productos por categoría:', error);
       return { success: false, error: error.message };
     }
   }
@@ -223,7 +224,7 @@ export class ProductsService {
 
       return { success: true, stats };
     } catch (error: any) {
-      console.error('Error obteniendo estadísticas:', error);
+      logger.error('Error obteniendo estadísticas:', error);
       return { success: false, error: error.message};
     }
   }
@@ -256,7 +257,7 @@ export class ProductsService {
         if (error) {
           // Si el bucket no existe, usar URI local como fallback
           if (error.message.includes('Bucket not found') || error.message.includes('not found')) {
-            console.warn('Supabase Storage bucket no encontrado, usando URI local');
+            logger.warn('Supabase Storage bucket no encontrado, usando URI local');
             return { success: true, imageUrl: imageUri };
           }
           throw error;
@@ -273,7 +274,7 @@ export class ProductsService {
         return { success: true, imageUrl: imageUri };
       }
     } catch (error: any) {
-      console.error('Error subiendo imagen:', error);
+      logger.error('Error subiendo imagen:', error);
       // En caso de error, usar la URI local como fallback
       return { success: true, imageUrl: imageUri };
     }

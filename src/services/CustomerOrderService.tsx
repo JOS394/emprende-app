@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { logger } from '../utils/logger';
 
 export class CustomerOrdersService {
 
@@ -61,7 +62,7 @@ export class CustomerOrdersService {
 
             return { success: true, orders };
         } catch (error: any) {
-            console.error('Error obteniendo órdenes:', error);
+            logger.error('Error obteniendo órdenes:', error);
             return { success: false, error: error.message };
         }
     }
@@ -124,7 +125,7 @@ export class CustomerOrdersService {
 
             return { success: true, order: completeOrder.order };
         } catch (error: any) {
-            console.error('Error creando orden:', error);
+            logger.error('Error creando orden:', error);
             return { success: false, error: error.message };
         }
     }
@@ -194,7 +195,7 @@ export class CustomerOrdersService {
     
           return { success: true, order };
         } catch (error: any) {
-          console.error('Error obteniendo orden:', error);
+          logger.error('Error obteniendo orden:', error);
           return { success: false, error: error.message };
         }
       }
@@ -270,7 +271,7 @@ export class CustomerOrdersService {
 
           return { success: true, order: completeOrder.order };
         } catch (error: any) {
-          console.error('Error actualizando orden:', error);
+          logger.error('Error actualizando orden:', error);
           return { success: false, error: error.message };
         }
       }
@@ -289,7 +290,7 @@ export class CustomerOrdersService {
     
           return { success: true };
         } catch (error: any) {
-          console.error('Error actualizando estado:', error);
+          logger.error('Error actualizando estado:', error);
           return { success: false, error: error.message };
         }
       }
@@ -315,7 +316,7 @@ export class CustomerOrdersService {
 
         return { success: true };
     } catch (error: any) {
-        console.error('Error cancelando orden:', error);
+        logger.error('Error cancelando orden:', error);
         return { success: false, error: error.message };
     }
     }
@@ -377,7 +378,7 @@ export class CustomerOrdersService {
     
           return { success: true, orders };
         } catch (error: any) {
-          console.error('Error buscando órdenes:', error);
+          logger.error('Error buscando órdenes:', error);
           return { success: false, error: error.message };
         }
       }
@@ -418,7 +419,7 @@ export class CustomerOrdersService {
     
           return { success: true, stats };
         } catch (error: any) {
-          console.error('Error obteniendo estadísticas:', error);
+          logger.error('Error obteniendo estadísticas:', error);
           return { success: false, error: error.message };
         }
       }
@@ -447,7 +448,7 @@ export class CustomerOrdersService {
     
           return { success: true };
         } catch (error: any) {
-          console.error('Error actualizando stock:', error);
+          logger.error('Error actualizando stock:', error);
           return { success: false, error: error.message };
         }
       }
@@ -474,7 +475,7 @@ export class CustomerOrdersService {
     
           return { success: true, products };
         } catch (error: any) {
-          console.error('Error obteniendo productos disponibles:', error);
+          logger.error('Error obteniendo productos disponibles:', error);
           return { success: false, error: error.message };
         }
       }
@@ -491,7 +492,7 @@ export class CustomerOrdersService {
     
           return { success: true, customers: data };
         } catch (error: any) {
-          console.error('Error obteniendo clientes:', error);
+          logger.error('Error obteniendo clientes:', error);
           return { success: false, error: error.message };
         }
       }

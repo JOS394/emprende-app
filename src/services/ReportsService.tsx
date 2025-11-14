@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { logger } from '../utils/logger';
 
 export class ReportsService {
 
@@ -63,7 +64,7 @@ export class ReportsService {
         }
       };
     } catch (error: any) {
-      console.error('Error obteniendo datos de ventas:', error);
+      logger.error('Error obteniendo datos de ventas:', error);
       return { success: false, error: error.message };
     }
   }
@@ -139,7 +140,7 @@ export class ReportsService {
 
       return { success: true, products: topProducts };
     } catch (error: any) {
-      console.error('Error obteniendo productos más vendidos:', error);
+      logger.error('Error obteniendo productos más vendidos:', error);
       return { success: false, error: error.message };
     }
   }
@@ -164,7 +165,7 @@ export class ReportsService {
 
       return { success: true, products: lowStock };
     } catch (error: any) {
-      console.error('Error obteniendo productos con stock bajo:', error);
+      logger.error('Error obteniendo productos con stock bajo:', error);
       return { success: false, error: error.message };
     }
   }
@@ -194,7 +195,7 @@ export class ReportsService {
         }
       };
     } catch (error: any) {
-      console.error('Error obteniendo estadísticas de clientes:', error);
+      logger.error('Error obteniendo estadísticas de clientes:', error);
       return { success: false, error: error.message };
     }
   }
@@ -218,7 +219,7 @@ export class ReportsService {
 
       return { success: true, customers: topBuyers };
     } catch (error: any) {
-      console.error('Error obteniendo mejores compradores:', error);
+      logger.error('Error obteniendo mejores compradores:', error);
       return { success: false, error: error.message };
     }
   }
@@ -247,7 +248,7 @@ export class ReportsService {
 
       return { success: true, data: categorySales };
     } catch (error: any) {
-      console.error('Error obteniendo ventas por categoría:', error);
+      logger.error('Error obteniendo ventas por categoría:', error);
       return { success: false, error: error.message };
     }
   }
@@ -280,7 +281,7 @@ export class ReportsService {
         }
       };
     } catch (error: any) {
-      console.error('Error generando reporte completo:', error);
+      logger.error('Error generando reporte completo:', error);
       return { success: false, error: error.message };
     }
   }

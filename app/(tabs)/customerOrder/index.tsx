@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
 import { CustomerOrdersService } from '../../../src/services/CustomerOrderService';
+import { Validators } from '../../../src/utils/validators';
 
 
 interface OrderItem {
@@ -175,13 +176,17 @@ export default function PedidosClientesScreen() {
   };
 
   const saveOrder = async () => {
-    if (!formData.customerName.trim()) {
-      Alert.alert('Error', 'El nombre del cliente es requerido');
+    // Validar nombre del cliente
+    const nameValidation = Validators.required(formData.customerName, 'El nombre del cliente');
+    if (!nameValidation.isValid) {
+      Alert.alert('Error', nameValidation.error);
       return;
     }
 
-    if (!formData.customerPhone.trim()) {
-      Alert.alert('Error', 'El teléfono del cliente es requerido');
+    // Validar teléfono del cliente
+    const phoneValidation = Validators.required(formData.customerPhone, 'El teléfono del cliente');
+    if (!phoneValidation.isValid) {
+      Alert.alert('Error', phoneValidation.error);
       return;
     }
 
@@ -190,22 +195,19 @@ export default function PedidosClientesScreen() {
       return;
     }
 
-    const invalidItems = orderItems.filter(item =>
-      !item.productId ||
-      item.productId === '' ||
-      !item.productName ||
-      item.quantity <= 0
-    );
+    // Validar cada item de la orden
+    for (const item of orderItems) {
+      const itemValidation = Validators.orderItem({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        price: item.price,
+      });
 
-    if (invalidItems.length > 0) {
-      Alert.alert('Error', 'Todos los productos deben estar seleccionados y tener cantidad válida');
-      return;
-    }
-
-    const itemsWithoutProduct = orderItems.filter(item => item.productId === '0');
-    if (itemsWithoutProduct.length > 0) {
-      Alert.alert('Error', 'Debe seleccionar todos los productos');
-      return;
+      if (!itemValidation.isValid) {
+        Alert.alert('Error', itemValidation.error);
+        return;
+      }
     }
 
     // Validar stock disponible para cada producto
@@ -213,8 +215,14 @@ export default function PedidosClientesScreen() {
     for (const item of orderItems) {
       const product = availableProducts.find(p => p.id.toString() === item.productId.toString());
       if (product) {
-        if (product.stock < item.quantity) {
-          stockErrors.push(`${item.productName}: Stock disponible (${product.stock}) menor que cantidad solicitada (${item.quantity})`);
+        const stockValidation = Validators.stockAvailability(
+          item.quantity,
+          product.stock,
+          item.productName
+        );
+
+        if (!stockValidation.isValid) {
+          stockErrors.push(stockValidation.error!);
         }
       }
     }
@@ -222,7 +230,7 @@ export default function PedidosClientesScreen() {
     if (stockErrors.length > 0) {
       Alert.alert(
         'Stock Insuficiente',
-        'Los siguientes productos no tienen stock suficiente:\n\n' + stockErrors.join('\n'),
+        stockErrors.join('\n'),
         [{ text: 'OK' }]
       );
       return;
