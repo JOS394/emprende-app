@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { LoadingProvider } from '../src/contexts/LoadingContext';
 import { ThemeProvider } from '../src/contexts/ThemeContext';
+import { NotificationProvider } from '../src/contexts/NotificationContext';
 import { initDatabase } from '../src/database/database';
 
 export default function RootLayout() {
@@ -19,9 +20,11 @@ export default function RootLayout() {
     <ThemeProvider>
       <LoadingProvider>
         <AuthProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-          </Stack>
+          <NotificationProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+            </Stack>
+          </NotificationProvider>
         </AuthProvider>
       </LoadingProvider>
     </ThemeProvider>

@@ -1,4 +1,5 @@
 import { useRequireAuth } from '@/src/contexts/AuthContext';
+import { useNotifications } from '@/src/contexts/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -47,6 +48,7 @@ interface CustomerOrder {
 
 
 export default function PedidosClientesScreen() {
+  const { checkAndNotifyPendingOrders } = useNotifications();
   const [modalVisible, setModalVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
@@ -96,6 +98,13 @@ export default function PedidosClientesScreen() {
   useEffect(() => {
     loadProducts();
   }, []);
+
+  // Verificar órdenes pendientes cuando se cargan
+  useEffect(() => {
+    if (pedidos.length > 0) {
+      checkAndNotifyPendingOrders(pedidos);
+    }
+  }, [pedidos]);
 
   // Cargar productos
   const loadProducts = async () => {

@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
 import { useRequireAuth } from '../../../src/contexts/AuthContext';
+import { useNotifications } from '../../../src/contexts/NotificationContext';
 import { Validators } from '../../../src/utils/validators';
 import { useSearchPagination } from '../../../src/hooks/usePagination';
 import { OptimizedImage } from '../../../src/components/common/OptimizedImage';
@@ -39,6 +40,7 @@ interface Product {
 
 export default function ProductosScreen() {
   const { user } = useRequireAuth();
+  const { checkAndNotifyLowStock } = useNotifications();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -79,6 +81,18 @@ export default function ProductosScreen() {
     },
     300 // Debounce de 300ms
   );
+
+  // Verificar stock bajo cuando se cargan productos
+  useEffect(() => {
+    if (productos.length > 0) {
+      const productsWithStock = productos.map(p => ({
+        id: p.id,
+        name: p.name,
+        stock_quantity: p.stock,
+      }));
+      checkAndNotifyLowStock(productsWithStock);
+    }
+  }, [productos]);
 
   // Reemplazar la función saveProduct
   const saveProduct = async () => {
