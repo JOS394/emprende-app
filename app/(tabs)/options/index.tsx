@@ -10,14 +10,18 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { useTheme } from '../../../src/contexts/ThemeContext';
 
 
 
 const MoreScreen = ({ navigation }: { navigation: any }) => {
+  const { theme, isDarkMode, toggleTheme } = useTheme();
+
   const [userProfile, setUserProfile] = useState({
     name: 'Juan Pérez',
     email: 'juan@ejemplo.com',
@@ -128,7 +132,7 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
 
   const MenuItem = ({ item }: { item: any }) => (
     <TouchableOpacity
-      style={styles.menuItem}
+      style={[styles.menuItem, { backgroundColor: theme.surface }]}
       onPress={() => handleMenuPress(item)}
       activeOpacity={0.7}
     >
@@ -136,20 +140,20 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
         <Ionicons name={item.icon as any} size={24} color={item.color} />
       </View>
       <View style={styles.menuTextContainer}>
-        <Text style={styles.menuTitle}>{item.title}</Text>
-        <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+        <Text style={[styles.menuTitle, { color: theme.text }]}>{item.title}</Text>
+        <Text style={[styles.menuSubtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
-      
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? '#1F2937' : '#FFFFFF'} />
+
       {/* Header con gradiente */}
       <LinearGradient
-        colors={['#1F2937', '#374151']}
+        colors={isDarkMode ? ['#1F2937', '#374151'] : ['#2196F3', '#1976D2']}
         style={styles.header}
       >
         <View style={styles.headerContent}>
@@ -191,9 +195,9 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
       </LinearGradient>
 
       {/* Menú principal */}
-      <ScrollView style={styles.menuContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.menuContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Configuración</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Configuración</Text>
           {menuItems.map((item) => (
             <MenuItem key={item.id} item={item} />
           ))}
@@ -201,10 +205,33 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
 
         {/* Acciones adicionales */}
         <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Otros</Text>
-          
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Otros</Text>
+
+          {/* Toggle de Modo Oscuro */}
+          <View style={[styles.menuItem, { backgroundColor: theme.surface }]}>
+            <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? '#FFB74D20' : '#9C27B020' }]}>
+              <Ionicons
+                name={isDarkMode ? 'moon' : 'sunny'}
+                size={24}
+                color={isDarkMode ? '#FFB74D' : '#9C27B0'}
+              />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: theme.text }]}>Modo oscuro</Text>
+              <Text style={[styles.menuSubtitle, { color: theme.textSecondary }]}>
+                {isDarkMode ? 'Tema oscuro activado' : 'Tema claro activado'}
+              </Text>
+            </View>
+            <Switch
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#E5E7EB', true: '#64B5F6' }}
+              thumbColor={isDarkMode ? '#2196F3' : '#F3F4F6'}
+            />
+          </View>
+
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, { backgroundColor: theme.surface }]}
             onPress={() => router.push('/options/share')}
             activeOpacity={0.7}
           >
@@ -212,14 +239,14 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
               <Ionicons name="share-outline" size={24} color="#10B981" />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Compartir app</Text>
-              <Text style={styles.menuSubtitle}>Invita a otros emprendedores</Text>
+              <Text style={[styles.menuTitle, { color: theme.text }]}>Compartir app</Text>
+              <Text style={[styles.menuSubtitle, { color: theme.textSecondary }]}>Invita a otros emprendedores</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, { backgroundColor: theme.surface }]}
             onPress={() => router.push('/options/rating')}
             activeOpacity={0.7}
           >
@@ -227,27 +254,27 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
               <Ionicons name="star-outline" size={24} color="#F59E0B" />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={styles.menuTitle}>Calificar app</Text>
-              <Text style={styles.menuSubtitle}>Ayúdanos con tu opinión</Text>
+              <Text style={[styles.menuTitle, { color: theme.text }]}>Calificar app</Text>
+              <Text style={[styles.menuSubtitle, { color: theme.textSecondary }]}>Ayúdanos con tu opinión</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
           </TouchableOpacity>
         </View>
 
         {/* Botón de cerrar sesión */}
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[styles.logoutButton, { backgroundColor: theme.surface, borderColor: isDarkMode ? '#E5737320' : '#FEE2E2' }]}
           onPress={handleLogout}
           activeOpacity={0.7}
         >
-          <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-          <Text style={styles.logoutText}>Cerrar sesión</Text>
+          <Ionicons name="log-out-outline" size={24} color={theme.error} />
+          <Text style={[styles.logoutText, { color: theme.error }]}>Cerrar sesión</Text>
         </TouchableOpacity>
 
         {/* Versión de la app */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Versión 1.0.0</Text>
-          <Text style={styles.versionText}>Hecho con ❤️ para emprendedores</Text>
+          <Text style={[styles.versionText, { color: theme.textTertiary }]}>Versión 1.0.0</Text>
+          <Text style={[styles.versionText, { color: theme.textTertiary }]}>Hecho con ❤️ para emprendedores</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
