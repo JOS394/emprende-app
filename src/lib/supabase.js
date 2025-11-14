@@ -3,9 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import 'react-native-url-polyfill/auto';
 
-// Configuración de tu proyecto Supabase
-const supabaseUrl = 'https://bjmmboptbblaehwhvhox.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqbW1ib3B0YmJsYWVod2h2aG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyNDc5MzYsImV4cCI6MjA2ODgyMzkzNn0.H2GM45Vv-GsG3k9HN_gMON_Y-XTKlrv2ugVib7-7uKM'; // Reemplaza con tu key
+// Configuración de tu proyecto Supabase desde variables de entorno
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://bjmmboptbblaehwhvhox.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqbW1ib3B0YmJsYWVod2h2aG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyNDc5MzYsImV4cCI6MjA2ODgyMzkzNn0.H2GM45Vv-GsG3k9HN_gMON_Y-XTKlrv2ugVib7-7uKM';
+
+// Validar que las credenciales estén configuradas
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Faltan credenciales de Supabase. Asegúrate de configurar EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY en tu archivo .env'
+  );
+}
 
 // Crear cliente de Supabase con AsyncStorage para persistencia
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

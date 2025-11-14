@@ -71,6 +71,14 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
     },
     {
       id: 3,
+      title: 'Notificaciones',
+      subtitle: 'Alertas de stock, órdenes y pagos',
+      icon: 'notifications-outline',
+      color: '#EC4899',
+      screen: '/options/notifications',
+    },
+    {
+      id: 4,
       title: 'Reportes básicos',
       subtitle: 'Ventas, ganancias y estadísticas',
       icon: 'bar-chart-outline',
@@ -78,7 +86,7 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
       screen: '/options/reports',
     },
     {
-      id: 4,
+      id: 5,
       title: 'Proveedores',
       subtitle: 'Contactos y órdenes de compra',
       icon: 'people-outline',
@@ -86,7 +94,7 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
       screen: '/options/vendors',
     },
     {
-      id: 5,
+      id: 6,
       title: 'Respaldo y sincronización',
       subtitle: 'Guardar datos en la nube',
       icon: 'cloud-upload-outline',
@@ -94,7 +102,7 @@ const MoreScreen = ({ navigation }: { navigation: any }) => {
       screen: '/options/backupSync',
     },
     {
-      id: 6,
+      id: 7,
       title: 'Ayuda y tutoriales',
       subtitle: 'Aprende a usar la app',
       icon: 'help-circle-outline',
