@@ -81,6 +81,45 @@ export default function ProductosScreen() {
       return;
     }
 
+    if (Number(formData.price) < 0) {
+      Alert.alert('Error', 'El precio no puede ser negativo');
+      return;
+    }
+
+    if (formData.cost && isNaN(Number(formData.cost))) {
+      Alert.alert('Error', 'El costo debe ser un número válido');
+      return;
+    }
+
+    if (formData.cost && Number(formData.cost) < 0) {
+      Alert.alert('Error', 'El costo no puede ser negativo');
+      return;
+    }
+
+    if (formData.stock && isNaN(Number(formData.stock))) {
+      Alert.alert('Error', 'El stock debe ser un número válido');
+      return;
+    }
+
+    if (formData.stock && Number(formData.stock) < 0) {
+      Alert.alert('Error', 'El stock no puede ser negativo');
+      return;
+    }
+
+    // Subir imagen a Supabase Storage si es una imagen nueva (local)
+    let imageUrl = formData.image;
+    if (formData.image && (formData.image.startsWith('file://') || formData.image.startsWith('content://'))) {
+      setLoading(true);
+      const uploadResult = await ProductsService.uploadImage(formData.image);
+      setLoading(false);
+
+      if (uploadResult.success) {
+        imageUrl = uploadResult.imageUrl;
+      } else {
+        Alert.alert('Advertencia', 'No se pudo subir la imagen, se usará una versión local');
+      }
+    }
+
     if (editingProduct) {
       // Actualizar producto existente
       const result = await ProductsService.updateProduct(editingProduct.id.toString(), {
@@ -89,7 +128,7 @@ export default function ProductosScreen() {
         price: Number(formData.price),
         cost: formData.cost ? Number(formData.cost) : null,
         stock: Number(formData.stock) || 0,
-        image: formData.image,
+        image: imageUrl,
         category: formData.category || 'Otros',
       });
 
@@ -107,7 +146,7 @@ export default function ProductosScreen() {
         price: Number(formData.price),
         cost: formData.cost ? Number(formData.cost) : null,
         stock: Number(formData.stock) || 0,
-        image: formData.image,
+        image: imageUrl,
         category: formData.category || 'Otros',
       });
 

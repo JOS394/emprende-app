@@ -175,6 +175,22 @@ export default function ClientesScreen() {
       return;
     }
 
+    // Validar formato de email si se proporciona
+    if (formData.email && formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        Alert.alert('Error', 'El formato del email no es válido');
+        return;
+      }
+    }
+
+    // Validar formato de teléfono (solo números, guiones y espacios)
+    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+    if (!phoneRegex.test(formData.phone)) {
+      Alert.alert('Error', 'El teléfono solo debe contener números, espacios y guiones');
+      return;
+    }
+
     let result;
     if (editingClient) {
       result = await CustomersService.updateCustomer(Number(editingClient.id), formData);
