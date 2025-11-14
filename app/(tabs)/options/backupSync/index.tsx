@@ -17,6 +17,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { BackupService } from '../../../../src/services/BackupService';
 
 export default function BackupScreen() {
   const [backupSettings, setBackupSettings] = useState({
@@ -66,17 +67,16 @@ export default function BackupScreen() {
   };
 
   const checkSyncStatus = async () => {
-    // Simular verificación de estado de sincronización
     try {
-      // Aquí conectarías con Supabase para verificar el estado real
-      setSyncStatus({
-        isConnected: true,
-        lastSync: new Date().toISOString(),
-        pendingChanges: Math.floor(Math.random() * 5),
-        totalItems: 156,
-        syncedItems: 156,
-      });
+      const result = await BackupService.getSyncStatus();
+
+      if (result.success && result.status) {
+        setSyncStatus(result.status);
+      } else {
+        setSyncStatus(prev => ({ ...prev, isConnected: false }));
+      }
     } catch (error) {
+      console.error('Error checking sync status:', error);
       setSyncStatus(prev => ({ ...prev, isConnected: false }));
     }
   };
@@ -87,31 +87,34 @@ export default function BackupScreen() {
     setBackupProgress(0);
 
     try {
-      // Simular proceso de respaldo
-      const steps = [
-        'Preparando datos...',
-        'Respaldando productos...',
-        'Respaldando clientes...',
-        'Respaldando pedidos...',
-        'Subiendo a la nube...',
-        'Finalizando...',
-      ];
-
-      for (let i = 0; i < steps.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setBackupProgress((i + 1) / steps.length * 100);
+      // Mostrar progreso visual
+      const progressSteps = [20, 40, 60, 80, 90];
+      for (const step of progressSteps) {
+        setBackupProgress(step);
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
+
+      // Crear backup real
+      const result = await BackupService.createBackup();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al crear el backup');
+      }
+
+      setBackupProgress(100);
 
       // Actualizar configuración
       const updatedSettings = {
         ...backupSettings,
         lastBackup: new Date().toISOString(),
+        backupSize: result.size || '0 MB',
       };
       await saveBackupSettings(updatedSettings);
 
-      Alert.alert('Éxito', 'Respaldo completado correctamente');
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo completar el respaldo');
+      Alert.alert('Éxito', `Respaldo completado correctamente\nTamaño: ${result.size}`);
+    } catch (error: any) {
+      console.error('Error performing backup:', error);
+      Alert.alert('Error', `No se pudo completar el respaldo: ${error.message || 'Error desconocido'}`);
     } finally {
       setIsLoading(false);
       setShowBackupModal(false);
@@ -148,22 +151,20 @@ export default function BackupScreen() {
   const exportData = async () => {
     try {
       setIsLoading(true);
-      
-      // Simular exportación de datos
-      const exportData = {
-        products: [],
-        customers: [],
-        orders: [],
-        settings: backupSettings,
-        exportDate: new Date().toISOString(),
-      };
 
-      const fileName = `emprendedor_backup_${Date.now()}.json`;
+      // Obtener backup real de la base de datos
+      const result = await BackupService.exportToJSON();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al exportar datos');
+      }
+
+      const fileName = result.filename || `emprende-backup-${Date.now()}.json`;
       const fileUri = FileSystem.documentDirectory + fileName;
-      
+
       await FileSystem.writeAsStringAsync(
-        fileUri, 
-        JSON.stringify(exportData, null, 2)
+        fileUri,
+        JSON.stringify(result.data, null, 2)
       );
 
       if (await Sharing.isAvailableAsync()) {
@@ -171,8 +172,9 @@ export default function BackupScreen() {
       } else {
         Alert.alert('Éxito', `Archivo exportado a: ${fileName}`);
       }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo exportar los datos');
+    } catch (error: any) {
+      console.error('Error exporting data:', error);
+      Alert.alert('Error', `No se pudo exportar los datos: ${error.message || 'Error desconocido'}`);
     } finally {
       setIsLoading(false);
     }
@@ -185,22 +187,32 @@ export default function BackupScreen() {
         copyToCacheDirectory: true,
       });
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const fileUri = result.assets[0].uri;
+
+        // Leer el archivo JSON
+        const fileContent = await FileSystem.readAsStringAsync(fileUri);
+
         Alert.alert(
           'Importar Datos',
-          '¿Estás seguro? Esto reemplazará tus datos actuales.',
+          '¿Estás seguro? Esta función está en desarrollo y no reemplazará tus datos actuales.',
           [
             { text: 'Cancelar', style: 'cancel' },
             {
-              text: 'Importar',
+              text: 'Validar',
               onPress: async () => {
                 setIsLoading(true);
                 try {
-                  // Simular importación
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-                  Alert.alert('Éxito', 'Datos importados correctamente');
-                } catch (error) {
-                  Alert.alert('Error', 'No se pudo importar el archivo');
+                  const importResult = await BackupService.importFromJSON(fileContent);
+
+                  if (!importResult.success) {
+                    throw new Error(importResult.error || 'Error al validar el archivo');
+                  }
+
+                  Alert.alert('Validación Exitosa', 'El archivo JSON es válido. La restauración completa estará disponible próximamente.');
+                } catch (error: any) {
+                  console.error('Error importing data:', error);
+                  Alert.alert('Error', `No se pudo importar el archivo: ${error.message || 'Error desconocido'}`);
                 } finally {
                   setIsLoading(false);
                 }
@@ -209,7 +221,8 @@ export default function BackupScreen() {
           ]
         );
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error selecting file:', error);
       Alert.alert('Error', 'No se pudo seleccionar el archivo');
     }
   };
@@ -217,19 +230,19 @@ export default function BackupScreen() {
   const syncNow = async () => {
     setIsLoading(true);
     try {
-      // Simular sincronización
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setSyncStatus({
-        ...syncStatus,
-        lastSync: new Date().toISOString(),
-        pendingChanges: 0,
-        syncedItems: syncStatus.totalItems,
-      });
+      const result = await BackupService.syncNow();
 
-      Alert.alert('Éxito', 'Sincronización completada');
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo sincronizar');
+      if (!result.success) {
+        throw new Error(result.error || 'Error al sincronizar');
+      }
+
+      // Actualizar estado de sincronización
+      await checkSyncStatus();
+
+      Alert.alert('Éxito', 'Sincronización completada. Tus datos están actualizados en la nube.');
+    } catch (error: any) {
+      console.error('Error syncing:', error);
+      Alert.alert('Error', `No se pudo sincronizar: ${error.message || 'Error desconocido'}`);
     } finally {
       setIsLoading(false);
     }

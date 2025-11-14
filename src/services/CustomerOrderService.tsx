@@ -201,6 +201,14 @@ export class CustomerOrdersService {
 
       static async updateOrder(orderId: string, updates: any) {
         try {
+          // Obtener la orden actual para comparar items
+          const currentOrderResult = await this.getOrderById(orderId);
+          if (!currentOrderResult.success) {
+            throw new Error('No se pudo obtener la orden actual');
+          }
+          const currentOrder = currentOrderResult.order;
+
+          // Actualizar información básica de la orden
           const { data, error } = await supabase
             .from('orders')
             .update({
@@ -216,12 +224,50 @@ export class CustomerOrdersService {
             .eq('id', orderId)
             .select()
             .single();
-    
+
           if (error) throw error;
-    
+
+          // Si se proporcionan items, actualizar los items de la orden
+          if (updates.items && Array.isArray(updates.items)) {
+            // Eliminar items actuales
+            const { error: deleteError } = await supabase
+              .from('order_items')
+              .delete()
+              .eq('order_id', orderId);
+
+            if (deleteError) throw deleteError;
+
+            // Restaurar stock de los items antiguos
+            for (const oldItem of currentOrder.items || []) {
+              await this.updateProductStock(oldItem.productId, oldItem.quantity);
+            }
+
+            // Insertar nuevos items
+            if (updates.items.length > 0) {
+              const orderItems = updates.items.map((item: any) => ({
+                order_id: orderId,
+                product_id: item.productId,
+                quantity: item.quantity,
+                unit_price: item.unitPrice,
+                total_price: item.quantity * item.unitPrice
+              }));
+
+              const { error: itemsError } = await supabase
+                .from('order_items')
+                .insert(orderItems);
+
+              if (itemsError) throw itemsError;
+
+              // Descontar stock de los nuevos items
+              for (const item of updates.items) {
+                await this.updateProductStock(item.productId, -item.quantity);
+              }
+            }
+          }
+
           // Obtener la orden completa actualizada
           const completeOrder = await this.getOrderById(orderId);
-          
+
           return { success: true, order: completeOrder.order };
         } catch (error: any) {
           console.error('Error actualizando orden:', error);

@@ -7,6 +7,7 @@ import {
     Animated,
     Dimensions,
     Linking,
+    Platform,
     SafeAreaView,
     ScrollView,
     StatusBar,
