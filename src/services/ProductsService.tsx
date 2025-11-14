@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { logger } from '../utils/logger';
 
 export class ProductsService {
-  
+
   // Obtener todos los productos del usuario
   static async getProducts() {
     try {
@@ -14,7 +14,7 @@ export class ProductsService {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       // Transformar datos de snake_case a camelCase
       const products = data.map(product => ({
         id: product.id,
@@ -33,6 +33,121 @@ export class ProductsService {
     } catch (error: any) {
       logger.error('Error obteniendo productos:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  // Obtener productos con paginación
+  static async getProductsPaginated(page: number = 1, limit: number = 20) {
+    try {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      // Obtener count total
+      const { count } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true);
+
+      // Obtener datos paginados
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      // Transformar datos
+      const products = data.map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        cost: product.cost,
+        stock: product.stock_quantity,
+        image: product.image_url,
+        category: product.category,
+        isActive: product.is_active,
+        createdAt: new Date(product.created_at),
+      }));
+
+      return {
+        success: true,
+        items: products,
+        totalItems: count || 0,
+        page,
+        limit,
+      };
+    } catch (error: any) {
+      logger.error('Error obteniendo productos paginados:', error);
+      return {
+        success: false,
+        error: error.message,
+        items: [],
+        totalItems: 0,
+      };
+    }
+  }
+
+  // Buscar productos con paginación
+  static async searchProductsPaginated(query: string, page: number = 1, limit: number = 20) {
+    try {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      // Si no hay query, devolver todos
+      if (!query || !query.trim()) {
+        return this.getProductsPaginated(page, limit);
+      }
+
+      // Obtener count total con búsqueda
+      const { count } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true)
+        .or(`name.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%`);
+
+      // Obtener datos paginados con búsqueda
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .or(`name.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      // Transformar datos
+      const products = data.map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        cost: product.cost,
+        stock: product.stock_quantity,
+        image: product.image_url,
+        category: product.category,
+        isActive: product.is_active,
+        createdAt: new Date(product.created_at),
+      }));
+
+      return {
+        success: true,
+        items: products,
+        totalItems: count || 0,
+        page,
+        limit,
+      };
+    } catch (error: any) {
+      logger.error('Error buscando productos paginados:', error);
+      return {
+        success: false,
+        error: error.message,
+        items: [],
+        totalItems: 0,
+      };
     }
   }
 
