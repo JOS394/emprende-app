@@ -208,10 +208,30 @@ export default function PedidosClientesScreen() {
       return;
     }
 
+    // Validar stock disponible para cada producto
+    const stockErrors: string[] = [];
+    for (const item of orderItems) {
+      const product = availableProducts.find(p => p.id.toString() === item.productId.toString());
+      if (product) {
+        if (product.stock < item.quantity) {
+          stockErrors.push(`${item.productName}: Stock disponible (${product.stock}) menor que cantidad solicitada (${item.quantity})`);
+        }
+      }
+    }
+
+    if (stockErrors.length > 0) {
+      Alert.alert(
+        'Stock Insuficiente',
+        'Los siguientes productos no tienen stock suficiente:\n\n' + stockErrors.join('\n'),
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     let result;
 
     if (editingOrder) {
-      // ✅ Actualizar pedido existente
+      // ✅ Actualizar pedido existente con items
       result = await CustomerOrdersService.updateOrder(editingOrder.id, {
         customerName: formData.customerName,
         customerPhone: formData.customerPhone,
@@ -219,7 +239,11 @@ export default function PedidosClientesScreen() {
         totalAmount: calculateTotal(),
         paymentMethod: formData.paymentMethod,
         notes: formData.notes,
-        // Nota: Los items no se actualizan en esta versión básica
+        items: orderItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.price,
+        })),
       });
 
       if (result.success) {

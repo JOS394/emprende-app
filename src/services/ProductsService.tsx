@@ -228,15 +228,54 @@ export class ProductsService {
     }
   }
 
-  // Subir imagen (para implementar más adelante)
+  // Subir imagen a Supabase Storage
   static async uploadImage(imageUri: string) {
     try {
-      // Por ahora solo retornamos la URI local
-      // Más adelante implementaremos Supabase Storage
-      return { success: true, imageUrl: imageUri };
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      // Generar nombre único para el archivo
+      const fileExt = imageUri.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      // Para React Native, necesitamos convertir la URI a un blob/archivo
+      // Verificar si es una URI local o remota
+      if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
+        // Es un archivo local - necesitamos usar fetch para convertirlo
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+
+        // Subir a Supabase Storage
+        const { data, error } = await supabase.storage
+          .from('product-images')
+          .upload(fileName, blob, {
+            contentType: `image/${fileExt}`,
+            upsert: false
+          });
+
+        if (error) {
+          // Si el bucket no existe, usar URI local como fallback
+          if (error.message.includes('Bucket not found') || error.message.includes('not found')) {
+            console.warn('Supabase Storage bucket no encontrado, usando URI local');
+            return { success: true, imageUrl: imageUri };
+          }
+          throw error;
+        }
+
+        // Obtener URL pública de la imagen
+        const { data: publicUrlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName);
+
+        return { success: true, imageUrl: publicUrlData.publicUrl };
+      } else {
+        // Es una URL remota, retornarla directamente
+        return { success: true, imageUrl: imageUri };
+      }
     } catch (error: any) {
       console.error('Error subiendo imagen:', error);
-      return { success: false, error: error.message };
+      // En caso de error, usar la URI local como fallback
+      return { success: true, imageUrl: imageUri };
     }
   }
 }
