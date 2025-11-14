@@ -6,6 +6,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +19,7 @@ import { CustomerOrdersService } from '../../../src/services/CustomerOrderServic
 import { Validators } from '../../../src/utils/validators';
 import { PDFService } from '../../../src/services/PDFService';
 import { BusinessSettingsService } from '../../../src/services/BusinessSettingsService';
+import { useSearchPagination } from '../../../src/hooks/usePagination';
 
 
 interface OrderItem {
@@ -45,8 +47,6 @@ interface CustomerOrder {
 
 
 export default function PedidosClientesScreen() {
-  const [pedidos, setPedidos] = useState<CustomerOrder[]>([]);
-  const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
@@ -58,7 +58,26 @@ export default function PedidosClientesScreen() {
   const [selectedProductIndex, setSelectedProductIndex] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState('');
 
-
+  // Hook de paginación con búsqueda
+  const {
+    items: pedidos,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    searchQuery,
+    setSearchQuery,
+    loadMore,
+    refresh,
+  } = useSearchPagination<CustomerOrder>(
+    async (query, page, limit) => {
+      const result = await CustomerOrdersService.searchOrdersPaginated(query, page, limit);
+      return {
+        items: result.items || [],
+        totalItems: result.totalItems || 0,
+      };
+    },
+    300 // Debounce de 300ms
+  );
 
   // Estados para el formulario
   const [formData, setFormData] = useState({
@@ -70,21 +89,13 @@ export default function PedidosClientesScreen() {
   });
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const { user, loading } = useRequireAuth();
-  if (loading) return <ActivityIndicator style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }} />;
+  const { user, loading: authLoading } = useRequireAuth();
+  if (authLoading) return <ActivityIndicator style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }} />;
 
-  // Datos de ejemplo
+  // Cargar productos
   useEffect(() => {
-    loadOrders();
     loadProducts();
   }, []);
-
-  const loadOrders = async () => {
-    const result: any = await CustomerOrdersService.getOrders();
-    if (result.success) {
-      setPedidos(result.orders || []);
-    }
-  };
 
   // Cargar productos
   const loadProducts = async () => {
@@ -122,10 +133,8 @@ export default function PedidosClientesScreen() {
   };
 
   const filteredOrders = pedidos.filter(order => {
-    const matchesSearch = order.customerName.toLowerCase().includes(searchText.toLowerCase()) ||
-      order.customerPhone.includes(searchText);
     const matchesStatus = filterStatus === 'todos' || order.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    return matchesStatus;
   });
 
   const clearForm = () => {
@@ -287,7 +296,7 @@ export default function PedidosClientesScreen() {
 
     // ✅ Solo continuar si fue exitoso
     if (result.success) {
-      loadOrders();
+      await refresh();
       setModalVisible(false);
       clearForm();
     }
@@ -300,7 +309,7 @@ export default function PedidosClientesScreen() {
 
     if (result.success) {
       Alert.alert('Éxito', currentPaid ? 'Pago marcado como pendiente' : 'Pago marcado como pagado');
-      loadOrders(); // Recarga los datos desde Supabase
+      await refresh(); // Recarga los datos desde Supabase
     } else {
       Alert.alert('Error', result.error || 'No se pudo actualizar el estado del pago');
     }
@@ -311,7 +320,7 @@ export default function PedidosClientesScreen() {
     const result = await CustomerOrdersService.updateOrderStatus(orderId, newStatus);
     if (result.success) {
       Alert.alert('Éxito', `Pedido marcado como ${getStatusText(newStatus)}`);
-      loadOrders(); // Recarga los datos desde Supabase
+      await refresh(); // Recarga los datos desde Supabase
     } else {
       Alert.alert('Error', result.error || 'No se pudo actualizar el pedido');
     }
@@ -569,8 +578,8 @@ export default function PedidosClientesScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar por cliente o teléfono..."
-            value={searchText}
-            onChangeText={setSearchText}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
           <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
             <Ionicons name="add" size={24} color="white" />
@@ -605,14 +614,39 @@ export default function PedidosClientesScreen() {
         renderItem={renderOrderItem}
         style={styles.ordersList}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading && pedidos.length > 0}
+            onRefresh={refresh}
+            colors={['#4CAF50']}
+            tintColor="#4CAF50"
+          />
+        }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color="#4CAF50" />
+              <Text style={styles.loadingMoreText}>Cargando más pedidos...</Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No hay pedidos disponibles</Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={() => setModalVisible(true)}>
-              <Text style={styles.emptyButtonText}>Crear primer pedido</Text>
-            </TouchableOpacity>
-          </View>
+          isLoading ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color="#4CAF50" />
+              <Text style={styles.loadingText}>Cargando pedidos...</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="receipt-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No hay pedidos disponibles</Text>
+              <TouchableOpacity style={styles.emptyButton} onPress={() => setModalVisible(true)}>
+                <Text style={styles.emptyButtonText}>Crear primer pedido</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
       />
 
@@ -1056,6 +1090,20 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 16,
     marginBottom: 24,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 12,
+  },
+  loadingMore: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
   },
   emptyButton: {
     backgroundColor: '#4CAF50',
