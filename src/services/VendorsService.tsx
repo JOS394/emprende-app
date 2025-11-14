@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import db from '../database/database';
+import { logger } from '../utils/logger';
 
 // Datos mock para web
 const mockVendors = [
@@ -21,13 +22,13 @@ export const VendorsService = {
 
     try {
       const result = db.getAllSync(`
-        SELECT * FROM vendors 
+        SELECT * FROM vendors
         ORDER BY date_created DESC
       `);
       return result;
-    } catch (error) {
-      console.error('Error obteniendo proveedores:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error obteniendo proveedores:', error);
+      return []; // Retornar array vacío en lugar de lanzar error
     }
   },
 
@@ -41,7 +42,7 @@ export const VendorsService = {
 
     try {
       const result = db.runSync(`
-        INSERT INTO vendors (name, phone, email, address) 
+        INSERT INTO vendors (name, phone, email, address)
         VALUES (?, ?, ?, ?)
       `, [
         vendor.name,
@@ -50,9 +51,9 @@ export const VendorsService = {
         vendor.address
       ]);
       return result.lastInsertRowId;
-    } catch (error) {
-      console.error('Error creando proveedor:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error creando proveedor:', error);
+      return null; // Retornar null en lugar de lanzar error
     }
   },
 
@@ -69,20 +70,20 @@ export const VendorsService = {
 
     try {
       const result = db.runSync(`
-        UPDATE vendors 
-        SET name = ?, phone = ?, email = ?, address = ? 
+        UPDATE vendors
+        SET name = ?, phone = ?, email = ?, address = ?
         WHERE id = ?
       `, [
         vendor.name,
-        vendor.phone, 
+        vendor.phone,
         vendor.email,
         vendor.address,
         id
       ]);
       return result.changes;
-    } catch (error) {
-      console.error('Error actualizando proveedor:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error actualizando proveedor:', error);
+      return 0; // Retornar 0 cambios en lugar de lanzar error
     }
   },
 
@@ -100,16 +101,16 @@ export const VendorsService = {
     try {
       const result = db.runSync('DELETE FROM vendors WHERE id = ?', [id]);
       return result.changes;
-    } catch (error) {
-      console.error('Error eliminando proveedor:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error eliminando proveedor:', error);
+      return 0; // Retornar 0 cambios en lugar de lanzar error
     }
   },
 
   // Buscar proveedores
   search: (query: string) => {
     if (Platform.OS === 'web') {
-      return mockVendors.filter(v => 
+      return mockVendors.filter(v =>
         v.name.toLowerCase().includes(query.toLowerCase()) ||
         v.email.toLowerCase().includes(query.toLowerCase())
       );
@@ -117,14 +118,14 @@ export const VendorsService = {
 
     try {
       const result = db.getAllSync(`
-        SELECT * FROM vendors 
+        SELECT * FROM vendors
         WHERE name LIKE ? OR email LIKE ?
         ORDER BY date_created DESC
       `, [`%${query}%`, `%${query}%`]);
       return result;
-    } catch (error) {
-      console.error('Error buscando proveedores:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error buscando proveedores:', error);
+      return []; // Retornar array vacío en lugar de lanzar error
     }
   }
 };

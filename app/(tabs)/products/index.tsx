@@ -168,8 +168,8 @@ export default function ProductosScreen() {
   const categories = ['todos', 'Ropa', 'Accesorios', 'Electrónicos', 'Hogar', 'Otros'];
 
   const filteredProducts = productos.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchText.toLowerCase());
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = filterCategory === 'todos' || product.category === filterCategory;
     return matchesSearch && matchesCategory && product.isActive;
   });

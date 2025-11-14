@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { Order } from '../../src/models/Order';
 import db from '../database/database';
+import { logger } from '../utils/logger';
 
 // Datos mock para web
 const mockOrders: Order[] = [
@@ -25,7 +26,7 @@ export const OrdersService = {
 
     try {
       const result = db.getAllSync(`
-        SELECT * FROM orders 
+        SELECT * FROM orders
         ORDER BY date_created DESC
       `);
       return result.map((order: any) => ({
@@ -38,9 +39,9 @@ export const OrdersService = {
         content: order.content,
         total: order.total
       }));
-    } catch (error) {
-      console.error('Error obteniendo pedidos:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error obteniendo pedidos:', error);
+      return []; // Retornar array vacío en lugar de lanzar error
     }
   },
 
@@ -55,12 +56,12 @@ export const OrdersService = {
     try {
       const result = db.runSync(`
         INSERT INTO orders (
-          date_order, 
-          date_start, 
-          date_end, 
-          vendor_id, 
-          status, 
-          content, 
+          date_order,
+          date_start,
+          date_end,
+          vendor_id,
+          status,
+          content,
           total
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `, [
@@ -73,9 +74,9 @@ export const OrdersService = {
         order.total || null
       ]);
       return result.lastInsertRowId;
-    } catch (error) {
-      console.error('Error creando pedido:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error creando pedido:', error);
+      return null; // Retornar null en lugar de lanzar error
     }
   },
 
@@ -96,9 +97,9 @@ export const OrdersService = {
         [status, id]
       );
       return result.changes;
-    } catch (error) {
-      console.error('Error actualizando estado:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error actualizando estado:', error);
+      return 0; // Retornar 0 cambios en lugar de lanzar error
     }
   },
 
@@ -116,9 +117,9 @@ export const OrdersService = {
     try {
       const result = db.runSync('DELETE FROM orders WHERE id = ?', [id]);
       return result.changes;
-    } catch (error) {
-      console.error('Error eliminando pedido:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error eliminando pedido:', error);
+      return 0; // Retornar 0 cambios en lugar de lanzar error
     }
   },
 
@@ -143,9 +144,9 @@ export const OrdersService = {
         content: order.content,
         total: order.total
       }));
-    } catch (error) {
-      console.error('Error filtrando pedidos:', error);
-      throw error;
+    } catch (error: any) {
+      logger.error('Error filtrando pedidos:', error);
+      return []; // Retornar array vacío en lugar de lanzar error
     }
   }
 };
