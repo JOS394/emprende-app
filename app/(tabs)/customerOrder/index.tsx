@@ -16,6 +16,8 @@ import {
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
 import { CustomerOrdersService } from '../../../src/services/CustomerOrderService';
 import { Validators } from '../../../src/utils/validators';
+import { PDFService } from '../../../src/services/PDFService';
+import { BusinessSettingsService } from '../../../src/services/BusinessSettingsService';
 
 
 interface OrderItem {
@@ -357,6 +359,78 @@ export default function PedidosClientesScreen() {
         }
       ]
     );
+  };
+
+  const handleExportPDF = async (order: CustomerOrder) => {
+    try {
+      // Obtener información del negocio
+      const businessResult = await BusinessSettingsService.getSettings();
+      const businessInfo = businessResult.success && businessResult.settings ? {
+        name: businessResult.settings.business_name,
+        phone: businessResult.settings.phone,
+        email: businessResult.settings.email,
+      } : undefined;
+
+      // Preparar datos de la factura
+      const invoiceData = {
+        orderNumber: order.id,
+        orderDate: order.orderDate,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        customerAddress: order.customerAddress,
+        items: order.items.map(item => ({
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          subtotal: item.subtotal,
+        })),
+        total: order.total,
+        paymentMethod: order.paymentMethod,
+        isPaid: order.isPaid,
+        notes: order.notes,
+        businessInfo,
+      };
+
+      // Generar PDF
+      Alert.alert('Generando PDF...', 'Por favor espera un momento');
+      const result = await PDFService.generateInvoicePDF(invoiceData);
+
+      if (result.success && result.uri) {
+        // Mostrar opciones de qué hacer con el PDF
+        Alert.alert(
+          'PDF Generado',
+          '¿Qué deseas hacer con la factura?',
+          [
+            {
+              text: 'Compartir',
+              onPress: async () => {
+                const shareResult = await PDFService.sharePDF(
+                  result.uri!,
+                  `factura-${order.id}.pdf`
+                );
+                if (!shareResult.success) {
+                  Alert.alert('Error', shareResult.error);
+                }
+              },
+            },
+            {
+              text: 'Imprimir',
+              onPress: async () => {
+                const printResult = await PDFService.printPDF(invoiceData);
+                if (!printResult.success) {
+                  Alert.alert('Error', printResult.error);
+                }
+              },
+            },
+            { text: 'Cancelar', style: 'cancel' },
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo generar el PDF');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Error al exportar PDF');
+    }
   };
 
   const openProductSelector = (index: number) => {
@@ -776,6 +850,17 @@ export default function PedidosClientesScreen() {
                     {selectedOrder.notes && (
                       <Text style={styles.detailText}>Notas: {selectedOrder.notes}</Text>
                     )}
+                  </View>
+
+                  {/* Botón de exportar PDF */}
+                  <View style={styles.pdfButtonContainer}>
+                    <TouchableOpacity
+                      style={styles.pdfButton}
+                      onPress={() => handleExportPDF(selectedOrder)}
+                    >
+                      <Ionicons name="document-text" size={20} color="white" />
+                      <Text style={styles.pdfButtonText}>Generar Factura PDF</Text>
+                    </TouchableOpacity>
                   </View>
                 </>
               )}
@@ -1307,6 +1392,30 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
 
+  pdfButtonContainer: {
+    marginTop: 20,
+    marginBottom: 10,
+  },
 
+  pdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2196F3',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
 
+  pdfButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
