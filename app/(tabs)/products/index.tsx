@@ -1,7 +1,7 @@
 import { ProductsService } from '@/src/services/ProductsService';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Alert,
   Dimensions,
@@ -14,10 +14,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
 import { useRequireAuth } from '../../../src/contexts/AuthContext';
 import { Validators } from '../../../src/utils/validators';
+import { useSearchPagination } from '../../../src/hooks/usePagination';
+import { OptimizedImage } from '../../../src/components/common/OptimizedImage';
 
 
 interface Product {
@@ -35,8 +39,6 @@ interface Product {
 
 export default function ProductosScreen() {
   const { user } = useRequireAuth();
-  const [productos, setProductos] = useState<Product[]>([]);
-  const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -44,6 +46,7 @@ export default function ProductosScreen() {
   const [selectedImageUri, setSelectedImageUri] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('todos');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Estados para el formulario
   const [formData, setFormData] = useState({
@@ -56,19 +59,26 @@ export default function ProductosScreen() {
     category: '',
   });
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  // Agregar estas nuevas funciones
-  const loadProducts = async () => {
-    const result = await ProductsService.getProducts();
-    if (result.success) {
-      setProductos(result.products || []);
-    } else {
-      Alert.alert('Error', 'No se pudieron cargar los productos');
-    }
-  };
+  // Hook de paginación con búsqueda
+  const {
+    items: productos,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    searchQuery,
+    setSearchQuery,
+    loadMore,
+    refresh,
+  } = useSearchPagination<Product>(
+    async (query, page, limit) => {
+      const result = await ProductsService.searchProductsPaginated(query, page, limit);
+      return {
+        items: result.items || [],
+        totalItems: result.totalItems || 0,
+      };
+    },
+    300 // Debounce de 300ms
+  );
 
   // Reemplazar la función saveProduct
   const saveProduct = async () => {
@@ -113,7 +123,7 @@ export default function ProductosScreen() {
 
       if (result.success) {
         Alert.alert('Éxito', 'Producto actualizado');
-        loadProducts(); // Recargar productos
+        await refresh(); // Recargar productos
       } else {
         Alert.alert('Error', result.error);
       }
@@ -131,7 +141,7 @@ export default function ProductosScreen() {
 
       if (result.success) {
         Alert.alert('Éxito', 'Producto creado');
-        loadProducts(); // Recargar productos
+        await refresh(); // Recargar productos
       } else {
         Alert.alert('Error', result.error);
       }
@@ -258,15 +268,16 @@ export default function ProductosScreen() {
     <View style={styles.productCard}>
       <View style={styles.productHeader}>
         <View style={styles.productImageContainer}>
-          {item.image ? (
-            <TouchableOpacity onPress={() => openImageModal(item.image!)}>
-              <Image source={{ uri: item.image }} style={styles.productImage} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Ionicons name="image-outline" size={32} color="#ccc" />
-            </View>
-          )}
+          <TouchableOpacity onPress={() => item.image && openImageModal(item.image)}>
+            <OptimizedImage
+              uri={item.image}
+              style={styles.productImage}
+              fallbackIcon="image-outline"
+              fallbackIconSize={32}
+              showLoader
+              loaderSize="small"
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.productInfo}>
@@ -305,8 +316,8 @@ export default function ProductosScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar productos..."
-            value={searchText}
-            onChangeText={setSearchText}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
           <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
             <Ionicons name="add" size={24} color="white" />
@@ -341,14 +352,41 @@ export default function ProductosScreen() {
         renderItem={renderProductItem}
         style={styles.productsList}
         showsVerticalScrollIndicator={false}
+        // Pull to refresh
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading && productos.length > 0}
+            onRefresh={refresh}
+            colors={['#4CAF50']}
+            tintColor="#4CAF50"
+          />
+        }
+        // Infinite scroll
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color="#4CAF50" />
+              <Text style={styles.loadingMoreText}>Cargando más productos...</Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="cube-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No hay productos disponibles</Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={openAddModal}>
-              <Text style={styles.emptyButtonText}>Agregar primer producto</Text>
-            </TouchableOpacity>
-          </View>
+          isLoading ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color="#4CAF50" />
+              <Text style={styles.loadingText}>Cargando productos...</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="cube-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No hay productos disponibles</Text>
+              <TouchableOpacity style={styles.emptyButton} onPress={openAddModal}>
+                <Text style={styles.emptyButtonText}>Agregar primer producto</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
       />
 
@@ -915,5 +953,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#f44336',
     padding: 5,
     borderRadius: 15,
+  },
+  loadingMore: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   },
 });

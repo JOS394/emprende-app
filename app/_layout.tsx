@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import React, { useEffect } from 'react';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { LoadingProvider } from '../src/contexts/LoadingContext';
+import { ThemeProvider } from '../src/contexts/ThemeContext';
 import { initDatabase } from '../src/database/database';
 
 export default function RootLayout() {
@@ -15,12 +16,14 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <LoadingProvider>
-      <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </AuthProvider>
-    </LoadingProvider>
+    <ThemeProvider>
+      <LoadingProvider>
+        <AuthProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+        </AuthProvider>
+      </LoadingProvider>
+    </ThemeProvider>
   );
 }
