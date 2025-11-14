@@ -16,6 +16,7 @@ import {
 import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu';
 import { useRequireAuth } from '../../../src/contexts/AuthContext';
 import { CustomersService } from '../../../src/services/CustomersService';
+import { Validators } from '../../../src/utils/validators';
 
 interface Customer {
   id: string;
@@ -165,29 +166,15 @@ export default function ClientesScreen() {
   };
 
   const saveClient = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert('Error', 'El nombre del cliente es requerido');
-      return;
-    }
+    // Validar usando las utilidades centralizadas
+    const validation = Validators.customer({
+      name: formData.name,
+      phone: formData.phone,
+      email: formData.email,
+    });
 
-    if (!formData.phone.trim()) {
-      Alert.alert('Error', 'El teléfono del cliente es requerido');
-      return;
-    }
-
-    // Validar formato de email si se proporciona
-    if (formData.email && formData.email.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email.trim())) {
-        Alert.alert('Error', 'El formato del email no es válido');
-        return;
-      }
-    }
-
-    // Validar formato de teléfono (solo números, guiones y espacios)
-    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
-    if (!phoneRegex.test(formData.phone)) {
-      Alert.alert('Error', 'El teléfono solo debe contener números, espacios y guiones');
+    if (!validation.isValid) {
+      Alert.alert('Error', validation.error);
       return;
     }
 

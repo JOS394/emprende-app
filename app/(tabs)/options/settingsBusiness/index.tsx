@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   SafeAreaView,
@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { BusinessSettingsService, type BusinessHours } from '../../../../src/services/BusinessSettingsService';
 
 const BusinessConfigScreen = () => {
   const [businessData, setBusinessData] = useState({    
@@ -53,24 +54,81 @@ const BusinessConfigScreen = () => {
 
   const loadBusinessData = async () => {
     try {
-      const savedData = await AsyncStorage.getItem('businessConfig');
-      if (savedData) {
-        setBusinessData(JSON.parse(savedData));
+      setIsLoading(true);
+      const result = await BusinessSettingsService.getSettings();
+
+      if (result.success && result.settings) {
+        // Convertir del formato del servicio al formato del componente
+        const hours = result.settings.hours as BusinessHours;
+        setBusinessData({
+          name: result.settings.business_name || 'Mi Emprendimiento',
+          description: result.settings.description || '',
+          phone: result.settings.phone || '',
+          email: result.settings.email || '',
+          address: result.settings.address || '',
+          logo: result.settings.logo_url || null,
+          whatsapp: result.settings.social_whatsapp || '',
+          facebook: result.settings.social_facebook || '',
+          instagram: result.settings.social_instagram || '',
+          schedule: {
+            monday: hours.Lunes || { open: '08:00', close: '18:00', enabled: true },
+            tuesday: hours.Martes || { open: '08:00', close: '18:00', enabled: true },
+            wednesday: hours.Miércoles || { open: '08:00', close: '18:00', enabled: true },
+            thursday: hours.Jueves || { open: '08:00', close: '18:00', enabled: true },
+            friday: hours.Viernes || { open: '08:00', close: '18:00', enabled: true },
+            saturday: hours.Sábado || { open: '09:00', close: '17:00', enabled: true },
+            sunday: hours.Domingo || { open: '10:00', close: '16:00', enabled: false },
+          },
+          autoBackup: result.settings.auto_backup ?? true,
+          notifications: result.settings.notifications ?? true,
+          currency: result.settings.currency || 'USD',
+          language: 'es',
+        });
       }
     } catch (error) {
       console.error('Error loading business data:', error);
+      Alert.alert('Error', 'No se pudieron cargar los datos de configuración');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const saveBusinessData = async () => {
     try {
       setIsLoading(true);
-      await AsyncStorage.setItem('businessConfig', JSON.stringify(businessData));
-      
-      // Aquí conectarías con Supabase para guardar en la nube
-      // await supabase.from('business_config').upsert(businessData);
-      
-      Alert.alert('Éxito', 'Configuración guardada correctamente');
+
+      // Convertir del formato del componente al formato del servicio
+      const settingsToSave = {
+        business_name: businessData.name,
+        phone: businessData.phone,
+        email: businessData.email,
+        address: businessData.address,
+        description: businessData.description,
+        logo_url: businessData.logo || '',
+        social_whatsapp: businessData.whatsapp,
+        social_facebook: businessData.facebook,
+        social_instagram: businessData.instagram,
+        hours: {
+          Lunes: businessData.schedule.monday,
+          Martes: businessData.schedule.tuesday,
+          Miércoles: businessData.schedule.wednesday,
+          Jueves: businessData.schedule.thursday,
+          Viernes: businessData.schedule.friday,
+          Sábado: businessData.schedule.saturday,
+          Domingo: businessData.schedule.sunday,
+        },
+        currency: businessData.currency,
+        auto_backup: businessData.autoBackup,
+        notifications: businessData.notifications,
+      };
+
+      const result = await BusinessSettingsService.updateSettings(settingsToSave);
+
+      if (result.success) {
+        Alert.alert('Éxito', 'Configuración guardada correctamente en la nube');
+      } else {
+        Alert.alert('Advertencia', 'Configuración guardada localmente. Sincronizará cuando haya conexión.');
+      }
     } catch (error) {
       console.error('Error saving business data:', error);
       Alert.alert('Error', 'No se pudo guardar la configuración');
@@ -96,11 +154,33 @@ const BusinessConfigScreen = () => {
       quality: 0.7,
     });
 
-    if (!result.canceled) {
-      setBusinessData(prev => ({
-        ...prev,
-        logo: result.assets[0].uri
-      }));
+    if (!result.canceled && result.assets && result.assets[0]) {
+      const imageUri = result.assets[0].uri;
+
+      // Subir imagen a Supabase Storage
+      setIsLoading(true);
+      const uploadResult = await BusinessSettingsService.uploadLogo(imageUri);
+      setIsLoading(false);
+
+      if (uploadResult.success) {
+        setBusinessData(prev => ({
+          ...prev,
+          logo: uploadResult.logoUrl || imageUri
+        }));
+
+        Alert.alert(
+          'Logo actualizado',
+          uploadResult.logoUrl?.includes('supabase')
+            ? 'Logo subido a la nube correctamente'
+            : 'Logo guardado localmente'
+        );
+      } else {
+        // Fallback a URI local
+        setBusinessData(prev => ({
+          ...prev,
+          logo: imageUri
+        }));
+      }
     }
   };
 
