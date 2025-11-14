@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import { logger } from '../utils/logger';
 
 export class CustomersService {
-  
+
   // Obtener todos los clientes del usuario
   static async getCustomers() {
     try {
@@ -12,7 +12,7 @@ export class CustomersService {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       const customers = data.map(customer => ({
         id: customer.id,
         name: customer.name,
@@ -30,6 +30,117 @@ export class CustomersService {
     } catch (error: any) {
       logger.error('Error obteniendo clientes:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  // Obtener clientes con paginación
+  static async getCustomersPaginated(page: number = 1, limit: number = 20) {
+    try {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      // Obtener count total
+      const { count } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true });
+
+      // Obtener datos paginados
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      // Transformar datos
+      const customers = data.map(customer => ({
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        address: customer.address,
+        notes: customer.notes,
+        totalOrders: customer.total_orders,
+        totalSpent: customer.total_spent,
+        createdAt: new Date(customer.created_at),
+        updatedAt: new Date(customer.updated_at),
+      }));
+
+      return {
+        success: true,
+        items: customers,
+        totalItems: count || 0,
+        page,
+        limit,
+      };
+    } catch (error: any) {
+      logger.error('Error obteniendo clientes paginados:', error);
+      return {
+        success: false,
+        error: error.message,
+        items: [],
+        totalItems: 0,
+      };
+    }
+  }
+
+  // Buscar clientes con paginación
+  static async searchCustomersPaginated(query: string, page: number = 1, limit: number = 20) {
+    try {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      // Si no hay query, devolver todos
+      if (!query || !query.trim()) {
+        return this.getCustomersPaginated(page, limit);
+      }
+
+      // Obtener count total con búsqueda
+      const { count } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+        .or(`name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%`);
+
+      // Obtener datos paginados con búsqueda
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .or(`name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      // Transformar datos
+      const customers = data.map(customer => ({
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        address: customer.address,
+        notes: customer.notes,
+        totalOrders: customer.total_orders,
+        totalSpent: customer.total_spent,
+        createdAt: new Date(customer.created_at),
+        updatedAt: new Date(customer.updated_at),
+      }));
+
+      return {
+        success: true,
+        items: customers,
+        totalItems: count || 0,
+        page,
+        limit,
+      };
+    } catch (error: any) {
+      logger.error('Error buscando clientes paginados:', error);
+      return {
+        success: false,
+        error: error.message,
+        items: [],
+        totalItems: 0,
+      };
     }
   }
 

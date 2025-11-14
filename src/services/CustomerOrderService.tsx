@@ -67,6 +67,161 @@ export class CustomerOrdersService {
         }
     }
 
+    // Obtener órdenes con paginación
+    static async getOrdersPaginated(page: number = 1, limit: number = 20) {
+        try {
+            const from = (page - 1) * limit;
+            const to = from + limit - 1;
+
+            // Obtener el total de órdenes
+            const { count } = await supabase
+                .from('orders')
+                .select('*', { count: 'exact', head: true });
+
+            // Obtener las órdenes de la página actual
+            const { data, error } = await supabase
+                .from('orders')
+                .select(`
+                    *,
+                    customers (
+                        name,
+                        phone,
+                        email
+                    ),
+                    order_items (
+                        id,
+                        product_id,
+                        quantity,
+                        unit_price,
+                        total_price,
+                        products (
+                            name,
+                            image_url
+                        )
+                    )
+                `)
+                .order('created_at', { ascending: false })
+                .range(from, to);
+
+            if (error) throw error;
+
+            // Transformar datos
+            const orders = data.map(order => ({
+                id: order.id,
+                orderNumber: order.order_number,
+                customerId: order.customer_id,
+                customerName: order.customers?.name || 'Sin cliente',
+                customerPhone: order.customers?.phone || '',
+                customerEmail: order.customers?.email || '',
+                status: order.status,
+                totalAmount: order.total_amount,
+                paymentMethod: order.payment_method,
+                paymentStatus: order.payment_status,
+                isPaid: order.payment_status === 'paid',
+                deliveryAddress: order.delivery_address,
+                deliveryDate: order.delivery_date ? new Date(order.delivery_date) : null,
+                notes: order.notes,
+                createdAt: order.created_at ? new Date(order.created_at) : new Date(),
+                updatedAt: new Date(order.updated_at),
+                items: order.order_items?.map((item: any) => ({
+                    id: item.id,
+                    productId: item.product_id,
+                    quantity: item.quantity,
+                    unitPrice: item.unit_price,
+                    totalPrice: item.total_price,
+                    productName: item.products?.name || 'Producto eliminado',
+                    productImage: item.products?.image_url || null
+                })) || []
+            }));
+
+            return { success: true, items: orders, totalItems: count || 0 };
+        } catch (error: any) {
+            logger.error('Error obteniendo órdenes paginadas:', error);
+            return { success: false, error: error.message, items: [], totalItems: 0 };
+        }
+    }
+
+    // Buscar órdenes con paginación
+    static async searchOrdersPaginated(query: string, page: number = 1, limit: number = 20) {
+        try {
+            const from = (page - 1) * limit;
+            const to = from + limit - 1;
+
+            if (!query || query.trim() === '') {
+                // Si no hay búsqueda, devolver todas las órdenes paginadas
+                return this.getOrdersPaginated(page, limit);
+            }
+
+            // Buscar en múltiples campos
+            const { data, error } = await supabase
+                .from('orders')
+                .select(`
+                    *,
+                    customers!inner (
+                        name,
+                        phone,
+                        email
+                    ),
+                    order_items (
+                        id,
+                        product_id,
+                        quantity,
+                        unit_price,
+                        total_price,
+                        products (
+                            name,
+                            image_url
+                        )
+                    )
+                `)
+                .or(`order_number.ilike.%${query}%,customers.name.ilike.%${query}%,customers.phone.ilike.%${query}%`)
+                .order('created_at', { ascending: false })
+                .range(from, to);
+
+            if (error) throw error;
+
+            // Contar resultados de búsqueda
+            const { count } = await supabase
+                .from('orders')
+                .select('*, customers!inner(*)', { count: 'exact', head: true })
+                .or(`order_number.ilike.%${query}%,customers.name.ilike.%${query}%,customers.phone.ilike.%${query}%`);
+
+            // Transformar datos
+            const orders = data.map(order => ({
+                id: order.id,
+                orderNumber: order.order_number,
+                customerId: order.customer_id,
+                customerName: order.customers?.name || 'Sin cliente',
+                customerPhone: order.customers?.phone || '',
+                customerEmail: order.customers?.email || '',
+                status: order.status,
+                totalAmount: order.total_amount,
+                paymentMethod: order.payment_method,
+                paymentStatus: order.payment_status,
+                isPaid: order.payment_status === 'paid',
+                deliveryAddress: order.delivery_address,
+                deliveryDate: order.delivery_date ? new Date(order.delivery_date) : null,
+                notes: order.notes,
+                createdAt: order.created_at ? new Date(order.created_at) : new Date(),
+                updatedAt: new Date(order.updated_at),
+                items: order.order_items?.map((item: any) => ({
+                    id: item.id,
+                    productId: item.product_id,
+                    quantity: item.quantity,
+                    unitPrice: item.unit_price,
+                    totalPrice: item.total_price,
+                    productName: item.products?.name || 'Producto eliminado',
+                    productImage: item.products?.image_url || null
+                })) || []
+            }));
+
+            return { success: true, items: orders, totalItems: count || 0 };
+        } catch (error: any) {
+            logger.error('Error buscando órdenes paginadas:', error);
+            return { success: false, error: error.message, items: [], totalItems: 0 };
+        }
+    }
+
     // Crear nueva orden
     static async createOrder(orderData: any) {
         try {

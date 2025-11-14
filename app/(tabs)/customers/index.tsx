@@ -6,6 +6,7 @@ import {
   FlatList,
   Linking,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +18,7 @@ import { ActionSheetMenu } from '../../../src/components/common/ActionSheetMenu'
 import { useRequireAuth } from '../../../src/contexts/AuthContext';
 import { CustomersService } from '../../../src/services/CustomersService';
 import { Validators } from '../../../src/utils/validators';
+import { useSearchPagination } from '../../../src/hooks/usePagination';
 
 interface Customer {
   id: string;
@@ -34,14 +36,11 @@ interface Customer {
 
 export default function ClientesScreen() {
   const { user, loading: authLoading } = useRequireAuth();
-  const [clientes, setClientes] = useState<Customer[]>([]);
-  const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Customer | null>(null);
   const [editingClient, setEditingClient] = useState<Customer | null>(null);
   const [filterType, setFilterType] = useState<string>('todos');
-  const [loading, setLoading] = useState(false);
 
   // Estados para el formulario
   const [formData, setFormData] = useState({
@@ -52,22 +51,26 @@ export default function ClientesScreen() {
     notes: '',
   });
 
-  useEffect(() => {
-    if (user) {
-      loadCustomers();
-    }
-  }, [user]);
-
-  const loadCustomers = async () => {
-    setLoading(true);
-    const result = await CustomersService.getCustomers();
-    if (result.success) {
-      setClientes(result.customers || []);
-    } else {
-      Alert.alert('Error', 'No se pudieron cargar los clientes');
-    }
-    setLoading(false);
-  };
+  // Hook de paginación con búsqueda
+  const {
+    items: clientes,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    searchQuery,
+    setSearchQuery,
+    loadMore,
+    refresh,
+  } = useSearchPagination<Customer>(
+    async (query, page, limit) => {
+      const result = await CustomersService.searchCustomersPaginated(query, page, limit);
+      return {
+        items: result.items || [],
+        totalItems: result.totalItems || 0,
+      };
+    },
+    300 // Debounce de 300ms
+  );
 
   const getCustomerType = (customer: Customer) => {
     if (customer.totalOrders === 0) return 'new';
@@ -96,12 +99,9 @@ export default function ClientesScreen() {
   };
 
   const filteredClients = clientes.filter(client => {
-    const matchesSearch = client.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                         client.phone.includes(searchText) ||
-                         (client.email && client.email.toLowerCase().includes(searchText.toLowerCase()));
     const customerType = getCustomerType(client);
     const matchesType = filterType === 'todos' || customerType === filterType;
-    return matchesSearch && matchesType;
+    return matchesType;
   });
 
   const clearForm = () => {
@@ -155,7 +155,7 @@ export default function ClientesScreen() {
             const result = await CustomersService.deleteCustomer(Number(client.id));
             if (result.success) {
               Alert.alert('Éxito', 'Cliente eliminado');
-              loadCustomers();
+              await refresh();
             } else {
               Alert.alert('Error', result.error);
             }
@@ -187,7 +187,7 @@ export default function ClientesScreen() {
 
     if (result.success) {
       Alert.alert('Éxito', editingClient ? 'Cliente actualizado' : 'Cliente creado');
-      loadCustomers();
+      await refresh();
       setModalVisible(false);
       clearForm();
     } else {
@@ -231,7 +231,7 @@ export default function ClientesScreen() {
     return diffDays;
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#9C27B0" />
@@ -327,8 +327,8 @@ export default function ClientesScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar clientes..."
-            value={searchText}
-            onChangeText={setSearchText}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
           <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
             <Ionicons name="add" size={24} color="white" />
@@ -363,14 +363,39 @@ export default function ClientesScreen() {
         renderItem={renderClientItem}
         style={styles.clientsList}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading && clientes.length > 0}
+            onRefresh={refresh}
+            colors={['#9C27B0']}
+            tintColor="#9C27B0"
+          />
+        }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color="#9C27B0" />
+              <Text style={styles.loadingMoreText}>Cargando más clientes...</Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No hay clientes disponibles</Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={openAddModal}>
-              <Text style={styles.emptyButtonText}>Agregar primer cliente</Text>
-            </TouchableOpacity>
-          </View>
+          isLoading ? (
+            <View style={styles.emptyContainer}>
+              <ActivityIndicator size="large" color="#9C27B0" />
+              <Text style={styles.loadingText}>Cargando clientes...</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No hay clientes disponibles</Text>
+              <TouchableOpacity style={styles.emptyButton} onPress={openAddModal}>
+                <Text style={styles.emptyButtonText}>Agregar primer cliente</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
       />
 
@@ -694,6 +719,20 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 16,
     marginBottom: 24,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 12,
+  },
+  loadingMore: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
   },
   emptyButton: {
     backgroundColor: '#9C27B0',
