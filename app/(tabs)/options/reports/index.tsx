@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,85 +14,121 @@ import {
   View,
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
+import { ReportsService } from '../../../../src/services/ReportsService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function Reports() {
-  const [selectedPeriod, setSelectedPeriod] = useState('week'); // week, month, year
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('week');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [reportData, setReportData] = useState({
     sales: {
-      total: 15750,
-      growth: 12.5,
-      transactions: 89,
+      total: 0,
+      growth: 0,
+      transactions: 0,
+      salesByPeriod: {} as { [key: string]: number },
     },
     products: {
-      topSelling: [
-        { name: 'Camiseta Azul', sales: 45, revenue: 1350 },
-        { name: 'Jeans Negro', sales: 32, revenue: 1920 },
-        { name: 'Zapatos Sport', sales: 28, revenue: 2240 },
-        { name: 'Sudadera Gris', sales: 23, revenue: 1150 },
-        { name: 'Gorra Roja', sales: 18, revenue: 540 },
-      ],
-      lowStock: [
-        { name: 'Camiseta Azul', stock: 2 },
-        { name: 'Zapatos Sport', stock: 1 },
-        { name: 'Gorra Roja', stock: 3 },
-      ],
+      topSelling: [] as Array<{ name: string; sales: number; revenue: number }>,
+      lowStock: [] as Array<{ name: string; stock: number }>,
     },
     customers: {
-      total: 156,
-      new: 23,
-      returning: 67,
-      topBuyers: [
-        { name: 'María García', orders: 8, total: 2400 },
-        { name: 'Juan López', orders: 6, total: 1800 },
-        { name: 'Ana Martínez', orders: 5, total: 1500 },
-      ],
+      total: 0,
+      new: 0,
+      returning: 0,
+      topBuyers: [] as Array<{ name: string; orders: number; total: number }>,
     },
+    categorySales: {} as { [key: string]: number },
   });
 
-  // Datos para gráficos
-  const salesChartData = {
-    labels: selectedPeriod === 'week' 
+  // Cargar datos del reporte
+  const loadReportData = async () => {
+    try {
+      const result = await ReportsService.getCompleteReport(selectedPeriod);
+
+      if (result.success && result.report) {
+        setReportData({
+          sales: result.report.sales || { total: 0, growth: 0, transactions: 0, salesByPeriod: {} },
+          products: result.report.products || { topSelling: [], lowStock: [] },
+          customers: result.report.customers || { total: 0, new: 0, returning: 0, topBuyers: [] },
+          categorySales: result.report.categorySales || {},
+        });
+      }
+    } catch (error) {
+      console.error('Error cargando datos del reporte:', error);
+      Alert.alert('Error', 'No se pudieron cargar los datos del reporte');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Cargar datos al montar y cuando cambie el período
+  useEffect(() => {
+    loadReportData();
+  }, [selectedPeriod]);
+
+  // Manejar refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadReportData();
+  };
+
+  // Convertir salesByPeriod en datos para el gráfico
+  const getSalesChartData = () => {
+    const labels = selectedPeriod === 'week'
       ? ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
       : selectedPeriod === 'month'
       ? ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4']
-      : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-    datasets: [{
-      data: selectedPeriod === 'week'
-        ? [1200, 1800, 1500, 2200, 1900, 2500, 1650]
-        : selectedPeriod === 'month'
-        ? [8500, 9200, 7800, 10500]
-        : [25000, 28000, 32000, 29000, 35000, 38000],
-      strokeWidth: 3,
-    }],
+      : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+
+    const data = labels.map(label => reportData.sales.salesByPeriod[label] || 0);
+
+    // Si no hay datos, mostrar 0s para que el gráfico se vea
+    const hasData = data.some(v => v > 0);
+
+    return {
+      labels,
+      datasets: [{
+        data: hasData ? data : [0, 0, 0, 0, 0, 0, 0],
+        strokeWidth: 3,
+      }],
+    };
   };
 
+  // Datos para gráficos
+  const salesChartData = getSalesChartData();
+
   const productSalesData = {
-    labels: ['Camisetas', 'Jeans', 'Zapatos', 'Accesorios'],
+    labels: Object.keys(reportData.categorySales).length > 0
+      ? Object.keys(reportData.categorySales).slice(0, 4)
+      : ['Sin datos'],
     datasets: [{
-      data: [45, 32, 28, 35],
+      data: Object.keys(reportData.categorySales).length > 0
+        ? Object.values(reportData.categorySales).slice(0, 4)
+        : [0],
     }],
   };
 
   const customerTypeData = [
     {
       name: 'Nuevos',
-      population: 23,
+      population: reportData.customers.new || 0,
       color: '#3B82F6',
       legendFontColor: '#374151',
       legendFontSize: 12,
     },
     {
       name: 'Recurrentes',
-      population: 67,
+      population: reportData.customers.returning || 0,
       color: '#10B981',
       legendFontColor: '#374151',
       legendFontSize: 12,
     },
     {
       name: 'Inactivos',
-      population: 66,
+      population: Math.max(0, (reportData.customers.total || 0) - (reportData.customers.new || 0) - (reportData.customers.returning || 0)),
       color: '#F59E0B',
       legendFontColor: '#374151',
       legendFontSize: 12,
@@ -212,14 +250,29 @@ export default function Reports() {
     </View>
   );
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Reportes Básicos</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.loadingText}>Cargando reportes...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Reportes Básicos</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={shareReport}
           style={styles.shareButton}
         >
@@ -227,7 +280,18 @@ export default function Reports() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#3B82F6']}
+            tintColor="#3B82F6"
+          />
+        }
+      >
         
         {/* Selector de período */}
         <View style={styles.periodSelector}>
@@ -751,5 +815,16 @@ const styles = StyleSheet.create({
   },
   bottomSpace: {
     height: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#6B7280',
   },
 });

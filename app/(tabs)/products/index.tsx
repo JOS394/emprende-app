@@ -221,54 +221,6 @@ export default function ProductosScreen() {
     }
   };
 
-  const saveProduct2 = () => {
-    if (!formData.name.trim()) {
-      Alert.alert('Error', 'El nombre del producto es requerido');
-      return;
-    }
-
-    if (!formData.price || isNaN(Number(formData.price))) {
-      Alert.alert('Error', 'El precio debe ser un número válido');
-      return;
-    }
-
-    if (editingProduct) {
-      // Actualizar producto existente
-      setProductos(prev =>
-        prev.map(p => p.id === editingProduct.id ? {
-          ...p,
-          name: formData.name,
-          description: formData.description,
-          price: Number(formData.price),
-          cost: formData.cost ? Number(formData.cost) : undefined,
-          stock: Number(formData.stock) || 0,
-          image: formData.image,
-          category: formData.category,
-        } : p)
-      );
-      Alert.alert('Éxito', 'Producto actualizado');
-    } else {
-      // Crear nuevo producto
-      const newProduct: Product = {
-        id: Date.now(),
-        name: formData.name,
-        description: formData.description,
-        price: Number(formData.price),
-        cost: formData.cost ? Number(formData.cost) : undefined,
-        stock: Number(formData.stock) || 0,
-        image: formData.image,
-        category: formData.category || 'Otros',
-        isActive: true,
-        createdAt: new Date(),
-      };
-      setProductos(prev => [...prev, newProduct]);
-      Alert.alert('Éxito', 'Producto creado');
-    }
-
-    setModalVisible(false);
-    clearForm();
-  };
-
   const openImageModal = (imageUri: string) => {
     setSelectedImageUri(imageUri);
     setImageModalVisible(true);
